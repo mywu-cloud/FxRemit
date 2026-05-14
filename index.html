@@ -1,0 +1,528 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Fx Flow Tracker｜台灣外資資金匯入匯出追蹤系統</title>
+<meta name="description" content="Foreign Capital Inward Outward Remittance — 台灣 USD/TWD 匯率追蹤系統" />
+<script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
+<style>
+  :root {
+    --bg-1: #0f172a;
+    --bg-2: #1e293b;
+    --card: rgba(255,255,255,0.06);
+    --card-border: rgba(255,255,255,0.12);
+    --text: #e2e8f0;
+    --text-dim: #94a3b8;
+    --accent: #38bdf8;
+    --accent-2: #6366f1;
+    --success: #22c55e;
+    --danger: #ef4444;
+    --radius: 14px;
+    --shadow: 0 10px 30px rgba(0,0,0,0.35);
+  }
+  * { box-sizing: border-box; }
+  html, body {
+    margin: 0; padding: 0;
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", "PingFang TC",
+                 "Microsoft JhengHei", Roboto, Helvetica, Arial, sans-serif;
+    background: linear-gradient(135deg, var(--bg-1), var(--bg-2));
+    color: var(--text);
+    min-height: 100vh;
+    -webkit-font-smoothing: antialiased;
+  }
+  .container { max-width: 1180px; margin: 0 auto; padding: 24px 20px 64px; }
+  header.app-header {
+    display: flex; align-items: center; justify-content: space-between;
+    flex-wrap: wrap; gap: 12px;
+    padding: 18px 22px;
+    background: var(--card);
+    border: 1px solid var(--card-border);
+    border-radius: var(--radius);
+    backdrop-filter: blur(10px);
+    box-shadow: var(--shadow);
+    margin-bottom: 22px;
+  }
+  .brand h1 {
+    margin: 0;
+    font-size: clamp(18px, 2.4vw, 24px);
+    background: linear-gradient(90deg, var(--accent), var(--accent-2));
+    -webkit-background-clip: text; background-clip: text; color: transparent;
+    letter-spacing: 0.5px;
+  }
+  .brand p { margin: 4px 0 0; color: var(--text-dim); font-size: clamp(11px, 1.6vw, 13px); }
+  .badge {
+    display: inline-flex; align-items: center; gap: 6px;
+    padding: 6px 10px; border-radius: 999px;
+    background: rgba(56,189,248,0.12); color: var(--accent);
+    font-size: 12px; border: 1px solid rgba(56,189,248,0.25);
+  }
+  .badge .dot { width: 7px; height: 7px; border-radius: 50%; background: var(--success); box-shadow: 0 0 8px var(--success); }
+  .controls {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+    gap: 14px; padding: 18px;
+    background: var(--card);
+    border: 1px solid var(--card-border);
+    border-radius: var(--radius);
+    margin-bottom: 14px;
+    box-shadow: var(--shadow);
+  }
+  .field label { display: block; font-size: 12.5px; color: var(--text-dim); margin-bottom: 6px; letter-spacing: 0.3px; }
+  .field input, .field select {
+    width: 100%; padding: 10px 12px;
+    border-radius: 10px; border: 1px solid var(--card-border);
+    background: rgba(0,0,0,0.25); color: var(--text);
+    font-size: 14px; outline: none;
+    transition: border-color .2s, box-shadow .2s;
+  }
+  .field input:focus, .field select:focus {
+    border-color: var(--accent);
+    box-shadow: 0 0 0 3px rgba(56,189,248,0.18);
+  }
+  .actions { display: flex; flex-wrap: wrap; gap: 10px; align-items: end; }
+  .btn {
+    padding: 10px 16px; border: none; border-radius: 10px;
+    font-size: 14px; font-weight: 600; cursor: pointer;
+    display: inline-flex; align-items: center; gap: 8px;
+    transition: transform .08s ease, filter .2s ease, opacity .2s;
+  }
+  .btn:active { transform: translateY(1px); }
+  .btn:disabled { opacity: .6; cursor: not-allowed; }
+  .btn-primary { background: linear-gradient(90deg, var(--accent), var(--accent-2)); color: white; }
+  .btn-secondary { background: rgba(255,255,255,0.08); color: var(--text); border: 1px solid var(--card-border); }
+  .btn-secondary:hover { filter: brightness(1.15); }
+  .info-bar {
+    display: flex; flex-wrap: wrap; justify-content: space-between; gap: 10px;
+    padding: 10px 14px; margin-bottom: 18px;
+    background: rgba(56,189,248,0.06);
+    border: 1px solid rgba(56,189,248,0.18);
+    border-radius: 10px;
+    font-size: 12.5px; color: var(--text-dim);
+  }
+  .info-bar .auto { color: var(--accent); }
+  .stats { display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 14px; margin-bottom: 20px; }
+  .stat-card {
+    background: var(--card); border: 1px solid var(--card-border);
+    border-radius: var(--radius); padding: 16px 18px; box-shadow: var(--shadow);
+  }
+  .stat-card .label { color: var(--text-dim); font-size: 12.5px; margin-bottom: 6px; }
+  .stat-card .value { font-size: clamp(18px, 3vw, 22px); font-weight: 700; }
+  .stat-card .sub { font-size: 12px; color: var(--text-dim); margin-top: 4px; }
+  .up { color: var(--success); } .down { color: var(--danger); }
+  .panel {
+    background: var(--card); border: 1px solid var(--card-border);
+    border-radius: var(--radius); padding: 18px; margin-bottom: 20px;
+    box-shadow: var(--shadow);
+  }
+  .panel h2 {
+    margin: 0 0 14px; font-size: clamp(15px, 2vw, 17px);
+    color: var(--text); display: flex; align-items: center; gap: 8px;
+  }
+  .panel h2::before {
+    content: ""; width: 4px; height: 18px; border-radius: 2px;
+    background: linear-gradient(180deg, var(--accent), var(--accent-2));
+  }
+  .chart-wrap { position: relative; width: 100%; height: 320px; }
+  .table-wrap { overflow-x: auto; -webkit-overflow-scrolling: touch; }
+  table { width: 100%; border-collapse: collapse; font-size: 13.5px; min-width: 520px; }
+  th, td { padding: 10px 12px; text-align: right; border-bottom: 1px solid rgba(255,255,255,0.06); white-space: nowrap; }
+  th:first-child, td:first-child { text-align: left; }
+  thead th { color: var(--text-dim); font-weight: 600; font-size: 12.5px; background: rgba(0,0,0,0.2); position: sticky; top: 0; }
+  tbody tr:hover { background: rgba(255,255,255,0.03); }
+  .status { display: flex; align-items: center; gap: 8px; color: var(--text-dim); font-size: 13px; margin-top: 8px; min-height: 18px; }
+  .spinner { width: 14px; height: 14px; border: 2px solid rgba(255,255,255,0.2); border-top-color: var(--accent); border-radius: 50%; animation: spin .8s linear infinite; display: none; }
+  .loading .spinner { display: inline-block; }
+  @keyframes spin { to { transform: rotate(360deg); } }
+  footer.app-footer { text-align: center; color: var(--text-dim); font-size: 12px; margin-top: 28px; padding-top: 14px; border-top: 1px solid var(--card-border); }
+  @media (max-width: 640px) {
+    .container { padding: 14px 12px 40px; }
+    header.app-header { padding: 14px; }
+    .panel, .controls, .stat-card { padding: 14px; }
+    th, td { padding: 8px 10px; font-size: 12.5px; }
+    .chart-wrap { height: 260px; }
+  }
+</style>
+</head>
+<body>
+<div class="container">
+
+  <header class="app-header">
+    <div class="brand">
+      <h1>Fx Flow Tracker</h1>
+      <p>Foreign Capital Inward Outward Remittance ｜ 台灣外資資金匯入匯出追蹤系統</p>
+    </div>
+    <span class="badge"><span class="dot"></span> USD / TWD 即時匯率</span>
+  </header>
+
+  <section class="controls" aria-label="查詢條件">
+    <div class="field">
+      <label for="startDate">起始日期</label>
+      <input type="date" id="startDate" />
+    </div>
+    <div class="field">
+      <label for="endDate">結束日期</label>
+      <input type="date" id="endDate" />
+    </div>
+    <div class="field">
+      <label for="rangePreset">快速區間</label>
+      <select id="rangePreset">
+        <option value="30">近 30 天</option>
+        <option value="90" selected>近 3 個月</option>
+        <option value="180">近 6 個月</option>
+        <option value="365">近 1 年</option>
+        <option value="custom">自訂</option>
+      </select>
+    </div>
+    <div class="actions">
+      <button id="btnFetch"   class="btn btn-primary">查詢匯率</button>
+      <button id="btnCSV"     class="btn btn-secondary" disabled>匯出 CSV</button>
+      <button id="btnExcel"   class="btn btn-secondary" disabled>匯出 Excel</button>
+    </div>
+  </section>
+
+  <div class="info-bar">
+    <span id="dataSource">資料來源：尚未載入</span>
+    <span class="auto">⏰ <span id="nextAutoUpdate">排程中…</span></span>
+  </div>
+
+  <div class="status" id="status">
+    <span class="spinner"></span>
+    <span id="statusText">請選擇日期區間後點擊「查詢匯率」</span>
+  </div>
+
+  <section class="stats" id="stats" hidden>
+    <div class="stat-card">
+      <div class="label">最新匯率 (USD/TWD)</div>
+      <div class="value" id="statLatest">—</div>
+      <div class="sub" id="statLatestDate"></div>
+    </div>
+    <div class="stat-card">
+      <div class="label">區間平均</div>
+      <div class="value" id="statAvg">—</div>
+      <div class="sub">資料筆數 <span id="statCount">0</span></div>
+    </div>
+    <div class="stat-card">
+      <div class="label">區間最高</div>
+      <div class="value up" id="statHigh">—</div>
+      <div class="sub" id="statHighDate"></div>
+    </div>
+    <div class="stat-card">
+      <div class="label">區間最低</div>
+      <div class="value down" id="statLow">—</div>
+      <div class="sub" id="statLowDate"></div>
+    </div>
+  </section>
+
+  <section class="panel" id="chartPanel" hidden>
+    <h2>USD / TWD 匯率走勢</h2>
+    <div class="chart-wrap"><canvas id="fxChart"></canvas></div>
+  </section>
+
+  <section class="panel" id="tablePanel" hidden>
+    <h2>匯率資料表</h2>
+    <div class="table-wrap">
+      <table id="fxTable">
+        <thead>
+          <tr>
+            <th>日期</th>
+            <th>現金買入</th>
+            <th>現金賣出</th>
+            <th>即期買入</th>
+            <th>即期賣出</th>
+          </tr>
+        </thead>
+        <tbody></tbody>
+      </table>
+    </div>
+  </section>
+
+  <footer class="app-footer">
+    © <span id="year"></span> Fx Flow Tracker · Foreign Capital Inward Outward Remittance
+  </footer>
+
+</div>
+<script>
+const FINMIND_CONFIG = Object.freeze({
+  endpoint: "https://api.finmindtrade.com/api/v4/data",
+  dataset:  "TaiwanExchangeRate",
+  currency: "USD",
+  token: ""
+});
+
+const LOCAL_CACHE_URL = "data/usd_twd.json";
+const AUTO_UPDATE_HOURS = [19, 20];
+const AUTO_UPDATE_MINUTE = 0;
+
+const $ = (id) => document.getElementById(id);
+const statusEl = $("status");
+const statusText = $("statusText");
+const btnFetch = $("btnFetch");
+const btnCSV = $("btnCSV");
+const btnExcel = $("btnExcel");
+const tbody = document.querySelector("#fxTable tbody");
+
+let fxData = [];
+let chart = null;
+let autoUpdateTimer = null;
+
+document.addEventListener("DOMContentLoaded", async () => {
+  $("year").textContent = new Date().getFullYear();
+  initDateInputs();
+  bindEvents();
+  scheduleNextAutoUpdate();
+  await fetchData();
+});
+
+function initDateInputs() {
+  const today = new Date();
+  const past = new Date(); past.setDate(today.getDate() - 90);
+  $("endDate").value = toISO(today);
+  $("startDate").value = toISO(past);
+}
+
+function bindEvents() {
+  btnFetch.addEventListener("click", () => fetchData());
+  btnCSV.addEventListener("click", exportCSV);
+  btnExcel.addEventListener("click", exportExcel);
+  $("rangePreset").addEventListener("change", (e) => {
+    const v = e.target.value;
+    if (v === "custom") return;
+    const days = parseInt(v, 10);
+    const end = new Date();
+    const start = new Date(); start.setDate(end.getDate() - days);
+    $("startDate").value = toISO(start);
+    $("endDate").value = toISO(end);
+  });
+}
+
+function toISO(d) {
+  const y = d.getFullYear();
+  const m = String(d.getMonth() + 1).padStart(2, "0");
+  const day = String(d.getDate()).padStart(2, "0");
+  return y + "-" + m + "-" + day;
+}
+
+function setStatus(msg, loading=false) {
+  statusText.textContent = msg;
+  statusEl.classList.toggle("loading", !!loading);
+}
+
+async function fetchData() {
+  const start = $("startDate").value;
+  const end = $("endDate").value;
+  if (!start || !end) { setStatus("請選擇起訖日期"); return; }
+  if (start > end)    { setStatus("起始日期不可晚於結束日期"); return; }
+
+  setStatus("正在載入匯率資料…", true);
+  btnFetch.disabled = true; btnCSV.disabled = true; btnExcel.disabled = true;
+
+  let data = await tryLocalCache(start, end);
+  let source = "本地快取（GitHub Actions 每日自動更新）";
+
+  if (!data || data.length === 0) {
+    data = await tryFinMindAPI(start, end);
+    source = "FinMind API（即時查詢）";
+  }
+
+  btnFetch.disabled = false;
+
+  if (!data || data.length === 0) {
+    fxData = [];
+    renderEmpty();
+    $("dataSource").textContent = "資料來源：無資料";
+    setStatus("該區間查無資料，請調整日期範圍。");
+    return;
+  }
+
+  fxData = data;
+  renderAll();
+  btnCSV.disabled = false; btnExcel.disabled = false;
+  $("dataSource").textContent = "資料來源：" + source;
+  setStatus("成功載入 " + fxData.length + " 筆資料（" + start + " ~ " + end + "）");
+}
+
+async function tryLocalCache(start, end) {
+  try {
+    const res = await fetch(LOCAL_CACHE_URL, { cache: "no-store" });
+    if (!res.ok) return null;
+    const json = await res.json();
+    const arr = Array.isArray(json) ? json : (json.data || []);
+    if (!arr.length) return null;
+    const filtered = arr
+      .map(normalizeRow)
+      .filter(r => r.date >= start && r.date <= end)
+      .sort((a,b) => a.date.localeCompare(b.date));
+    const lastCache = arr.map(r => r.date).sort().pop();
+    if (lastCache && daysDiff(lastCache, end) > 3) return null;
+    return filtered;
+  } catch { return null; }
+}
+
+async function tryFinMindAPI(start, end) {
+  try {
+    const params = new URLSearchParams({
+      dataset: FINMIND_CONFIG.dataset,
+      data_id: FINMIND_CONFIG.currency,
+      start_date: start,
+      end_date: end
+    });
+    if (FINMIND_CONFIG.token) params.append("token", FINMIND_CONFIG.token);
+    const res = await fetch(FINMIND_CONFIG.endpoint + "?" + params);
+    if (!res.ok) throw new Error("HTTP " + res.status);
+    const json = await res.json();
+    if (!json || !Array.isArray(json.data)) return null;
+    return json.data.map(normalizeRow).sort((a,b)=>a.date.localeCompare(b.date));
+  } catch (e) { console.error(e); return null; }
+}
+
+function normalizeRow(r) {
+  return {
+    date: r.date,
+    cash_buy:  num(r.cash_buy),
+    cash_sell: num(r.cash_sell),
+    spot_buy:  num(r.spot_buy),
+    spot_sell: num(r.spot_sell)
+  };
+}
+function num(v) { const n = Number(v); return Number.isFinite(n) ? n : null; }
+function daysDiff(a, b) { return Math.abs((new Date(b) - new Date(a)) / 86400000); }
+
+function renderEmpty() {
+  $("stats").hidden = true;
+  $("chartPanel").hidden = true;
+  $("tablePanel").hidden = true;
+  if (chart) { chart.destroy(); chart = null; }
+  tbody.innerHTML = "";
+}
+function renderAll() { renderStats(); renderChart(); renderTable();
+  $("stats").hidden = false; $("chartPanel").hidden = false; $("tablePanel").hidden = false;
+}
+function renderStats() {
+  const spotMid = fxData.map(r => avgMid(r)).filter(v => v !== null);
+  const latest = fxData[fxData.length - 1];
+  const max = Math.max(...spotMid); const min = Math.min(...spotMid);
+  const avg = spotMid.reduce((a,b)=>a+b,0) / spotMid.length;
+  const maxIdx = fxData.findIndex(r => avgMid(r) === max);
+  const minIdx = fxData.findIndex(r => avgMid(r) === min);
+  $("statLatest").textContent     = fmt(avgMid(latest));
+  $("statLatestDate").textContent = latest.date;
+  $("statAvg").textContent        = fmt(avg);
+  $("statCount").textContent      = fxData.length;
+  $("statHigh").textContent       = fmt(max);
+  $("statHighDate").textContent   = fxData[maxIdx]?.date || "";
+  $("statLow").textContent        = fmt(min);
+  $("statLowDate").textContent    = fxData[minIdx]?.date || "";
+}
+function avgMid(r) {
+  const vals = [r.spot_buy, r.spot_sell].filter(v => v !== null);
+  return vals.length ? vals.reduce((a,b)=>a+b,0)/vals.length : null;
+}
+function fmt(n) { return (n===null||n===undefined||!Number.isFinite(n)) ? "—" : n.toFixed(4); }
+function renderChart() {
+  const ctx = document.getElementById("fxChart").getContext("2d");
+  if (chart) chart.destroy();
+  chart = new Chart(ctx, {
+    type: "line",
+    data: { labels: fxData.map(r => r.date), datasets: [
+      { label: "即期買入", data: fxData.map(r => r.spot_buy),
+        borderColor: "#38bdf8", backgroundColor: "rgba(56,189,248,0.15)",
+        tension: 0.25, pointRadius: 0, borderWidth: 2, fill: true },
+      { label: "即期賣出", data: fxData.map(r => r.spot_sell),
+        borderColor: "#6366f1", backgroundColor: "rgba(99,102,241,0.10)",
+        tension: 0.25, pointRadius: 0, borderWidth: 2, fill: false }
+    ]},
+    options: {
+      responsive: true, maintainAspectRatio: false,
+      interaction: { mode: "index", intersect: false },
+      plugins: { legend: { labels: { color: "#e2e8f0" } }, tooltip: { mode: "index", intersect: false } },
+      scales: {
+        x: { ticks: { color: "#94a3b8", maxRotation: 0, autoSkip: true }, grid: { color: "rgba(255,255,255,0.05)" } },
+        y: { ticks: { color: "#94a3b8" }, grid: { color: "rgba(255,255,255,0.06)" } }
+      }
+    }
+  });
+}
+function renderTable() {
+  tbody.innerHTML = "";
+  const frag = document.createDocumentFragment();
+  for (const r of fxData) {
+    const tr = document.createElement("tr");
+    tr.innerHTML = "<td>" + r.date + "</td><td>" + fmt(r.cash_buy) + "</td><td>" + fmt(r.cash_sell) + "</td><td>" + fmt(r.spot_buy) + "</td><td>" + fmt(r.spot_sell) + "</td>";
+    frag.appendChild(tr);
+  }
+  tbody.appendChild(frag);
+}
+
+function buildExportRows() {
+  return fxData.map(r => ({
+    "日期": r.date, "現金買入": r.cash_buy, "現金賣出": r.cash_sell,
+    "即期買入": r.spot_buy, "即期賣出": r.spot_sell
+  }));
+}
+function exportCSV() {
+  if (!fxData.length) return;
+  const rows = buildExportRows();
+  const headers = Object.keys(rows[0]);
+  const lines = [headers.join(",")];
+  for (const r of rows) lines.push(headers.map(h => csvEscape(r[h])).join(","));
+  const blob = new Blob(["\uFEFF" + lines.join("\n")], { type: "text/csv;charset=utf-8;" });
+  download(blob, "FxFlowTracker_" + $("startDate").value + "_" + $("endDate").value + ".csv");
+}
+function csvEscape(v) {
+  if (v === null || v === undefined) return "";
+  const s = String(v); return /[",\n]/.test(s) ? '"' + s.replace(/"/g,'""') + '"' : s;
+}
+function exportExcel() {
+  if (!fxData.length) return;
+  const rows = buildExportRows();
+  const ws = XLSX.utils.json_to_sheet(rows);
+  const wb = XLSX.utils.book_new();
+  XLSX.utils.book_append_sheet(wb, ws, "USD-TWD");
+  XLSX.writeFile(wb, "FxFlowTracker_" + $("startDate").value + "_" + $("endDate").value + ".xlsx");
+}
+function download(blob, filename) {
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement("a");
+  a.href = url; a.download = filename;
+  document.body.appendChild(a); a.click();
+  setTimeout(() => { URL.revokeObjectURL(url); a.remove(); }, 0);
+}
+
+function nowInTaipei() {
+  const now = new Date();
+  const utcMs = now.getTime() + now.getTimezoneOffset() * 60000;
+  return new Date(utcMs + 8 * 3600 * 1000);
+}
+function msUntilNextRun() {
+  const tpe = nowInTaipei();
+  let next = null;
+  for (const h of AUTO_UPDATE_HOURS) {
+    const candidate = new Date(tpe);
+    candidate.setHours(h, AUTO_UPDATE_MINUTE, 0, 0);
+    if (candidate.getTime() > tpe.getTime()) { next = candidate; break; }
+  }
+  if (!next) {
+    next = new Date(tpe);
+    next.setDate(next.getDate() + 1);
+    next.setHours(AUTO_UPDATE_HOURS[0], AUTO_UPDATE_MINUTE, 0, 0);
+  }
+  return { delay: next.getTime() - tpe.getTime(), nextTpe: next };
+}
+function scheduleNextAutoUpdate() {
+  if (autoUpdateTimer) clearTimeout(autoUpdateTimer);
+  const { delay, nextTpe } = msUntilNextRun();
+  const display = (nextTpe.getMonth()+1) + "/" + nextTpe.getDate() + " " + String(nextTpe.getHours()).padStart(2,"0") + ":00";
+  $("nextAutoUpdate").textContent = "下次自動更新：" + display + "（台灣時間）";
+  autoUpdateTimer = setTimeout(async () => {
+    const tag = String(nextTpe.getHours()).padStart(2,"0") + ":00";
+    setStatus("⏰ 自動更新中…（台灣時間 " + tag + "）", true);
+    try { await fetchData(); }
+    catch (e) { console.error(e); }
+    scheduleNextAutoUpdate();
+  }, delay);
+}
+</script>
+</body>
+</html>

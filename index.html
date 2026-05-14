@@ -4,21 +4,23 @@
 <meta charset="UTF-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1.0" />
 <title>Fx Flow Tracker｜台灣外資資金匯入匯出追蹤系統</title>
-<meta name="description" content="Foreign Capital Inward Outward Remittance — 台灣 USD/TWD 匯率追蹤系統" />
+<meta name="description" content="Foreign Capital Inward Outward Remittance — USD/TWD 匯率 + 外資資金匯入匯出追蹤" />
 <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
 <style>
   :root {
-    --bg-1: #0f172a;
-    --bg-2: #1e293b;
-    --card: rgba(255,255,255,0.06);
-    --card-border: rgba(255,255,255,0.12);
+    --bg-1: #0b1426;
+    --bg-2: #131e36;
+    --card: rgba(255,255,255,0.05);
+    --card-border: rgba(255,255,255,0.10);
     --text: #e2e8f0;
     --text-dim: #94a3b8;
     --accent: #38bdf8;
     --accent-2: #6366f1;
-    --success: #22c55e;
-    --danger: #ef4444;
+    --buy: #e74c3c;       /* 紅 = 上漲 / 匯入 / 買超 */
+    --sell: #27ae60;      /* 綠 = 下跌 / 匯出 / 賣超 */
+    --fx: #f0a500;        /* 金 = 匯率 */
+    --cum: #1f6feb;       /* 藍 = 累計 */
     --radius: 14px;
     --shadow: 0 10px 30px rgba(0,0,0,0.35);
   }
@@ -32,17 +34,18 @@
     min-height: 100vh;
     -webkit-font-smoothing: antialiased;
   }
-  .container { max-width: 1180px; margin: 0 auto; padding: 24px 20px 64px; }
+  .container { max-width: 1280px; margin: 0 auto; padding: 22px 18px 60px; }
+
   header.app-header {
     display: flex; align-items: center; justify-content: space-between;
     flex-wrap: wrap; gap: 12px;
-    padding: 18px 22px;
+    padding: 16px 20px;
     background: var(--card);
     border: 1px solid var(--card-border);
     border-radius: var(--radius);
     backdrop-filter: blur(10px);
     box-shadow: var(--shadow);
-    margin-bottom: 22px;
+    margin-bottom: 18px;
   }
   .brand h1 {
     margin: 0;
@@ -51,97 +54,137 @@
     -webkit-background-clip: text; background-clip: text; color: transparent;
     letter-spacing: 0.5px;
   }
-  .brand p { margin: 4px 0 0; color: var(--text-dim); font-size: clamp(11px, 1.6vw, 13px); }
+  .brand p { margin: 4px 0 0; color: var(--text-dim); font-size: clamp(11px, 1.5vw, 13px); }
   .badge {
     display: inline-flex; align-items: center; gap: 6px;
     padding: 6px 10px; border-radius: 999px;
     background: rgba(56,189,248,0.12); color: var(--accent);
     font-size: 12px; border: 1px solid rgba(56,189,248,0.25);
   }
-  .badge .dot { width: 7px; height: 7px; border-radius: 50%; background: var(--success); box-shadow: 0 0 8px var(--success); }
+  .badge .dot { width: 7px; height: 7px; border-radius: 50%; background: var(--sell); box-shadow: 0 0 8px var(--sell); }
+
+  .tabs { display: flex; flex-wrap: wrap; gap: 4px; margin-bottom: 16px; border-bottom: 1px solid var(--card-border); }
+  .tab-btn {
+    padding: 10px 16px; border: none; background: transparent;
+    color: var(--text-dim); cursor: pointer;
+    font-size: 14px; font-weight: 600;
+    border-bottom: 2px solid transparent;
+    transition: color .2s, border-color .2s;
+  }
+  .tab-btn:hover { color: var(--text); }
+  .tab-btn.active { color: var(--accent); border-bottom-color: var(--accent); }
+
+  .tab-panel { display: none; }
+  .tab-panel.active { display: block; }
+
   .controls {
     display: grid;
-    grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
-    gap: 14px; padding: 18px;
+    grid-template-columns: repeat(auto-fit, minmax(170px, 1fr));
+    gap: 12px; padding: 16px;
     background: var(--card);
     border: 1px solid var(--card-border);
     border-radius: var(--radius);
     margin-bottom: 14px;
     box-shadow: var(--shadow);
   }
-  .field label { display: block; font-size: 12.5px; color: var(--text-dim); margin-bottom: 6px; letter-spacing: 0.3px; }
+  .field label { display: block; font-size: 12.5px; color: var(--text-dim); margin-bottom: 6px; }
   .field input, .field select {
-    width: 100%; padding: 10px 12px;
+    width: 100%; padding: 9px 12px;
     border-radius: 10px; border: 1px solid var(--card-border);
     background: rgba(0,0,0,0.25); color: var(--text);
     font-size: 14px; outline: none;
-    transition: border-color .2s, box-shadow .2s;
   }
   .field input:focus, .field select:focus {
     border-color: var(--accent);
     box-shadow: 0 0 0 3px rgba(56,189,248,0.18);
   }
-  .actions { display: flex; flex-wrap: wrap; gap: 10px; align-items: end; }
+  .actions { display: flex; flex-wrap: wrap; gap: 8px; align-items: end; }
   .btn {
-    padding: 10px 16px; border: none; border-radius: 10px;
-    font-size: 14px; font-weight: 600; cursor: pointer;
-    display: inline-flex; align-items: center; gap: 8px;
+    padding: 9px 14px; border: none; border-radius: 10px;
+    font-size: 13.5px; font-weight: 600; cursor: pointer;
     transition: transform .08s ease, filter .2s ease, opacity .2s;
   }
   .btn:active { transform: translateY(1px); }
-  .btn:disabled { opacity: .6; cursor: not-allowed; }
+  .btn:disabled { opacity: .55; cursor: not-allowed; }
   .btn-primary { background: linear-gradient(90deg, var(--accent), var(--accent-2)); color: white; }
   .btn-secondary { background: rgba(255,255,255,0.08); color: var(--text); border: 1px solid var(--card-border); }
-  .btn-secondary:hover { filter: brightness(1.15); }
+  .btn-secondary:hover { filter: brightness(1.2); }
+
   .info-bar {
     display: flex; flex-wrap: wrap; justify-content: space-between; gap: 10px;
-    padding: 10px 14px; margin-bottom: 18px;
+    padding: 10px 14px; margin-bottom: 14px;
     background: rgba(56,189,248,0.06);
     border: 1px solid rgba(56,189,248,0.18);
     border-radius: 10px;
     font-size: 12.5px; color: var(--text-dim);
   }
   .info-bar .auto { color: var(--accent); }
-  .stats { display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 14px; margin-bottom: 20px; }
+
+  .stats { display: grid; grid-template-columns: repeat(auto-fit, minmax(170px, 1fr)); gap: 12px; margin-bottom: 18px; }
   .stat-card {
     background: var(--card); border: 1px solid var(--card-border);
-    border-radius: var(--radius); padding: 16px 18px; box-shadow: var(--shadow);
+    border-radius: var(--radius); padding: 14px 16px; box-shadow: var(--shadow);
   }
-  .stat-card .label { color: var(--text-dim); font-size: 12.5px; margin-bottom: 6px; }
-  .stat-card .value { font-size: clamp(18px, 3vw, 22px); font-weight: 700; }
-  .stat-card .sub { font-size: 12px; color: var(--text-dim); margin-top: 4px; }
-  .up { color: var(--success); } .down { color: var(--danger); }
+  .stat-card .label { color: var(--text-dim); font-size: 12px; margin-bottom: 6px; }
+  .stat-card .value { font-size: clamp(17px, 2.6vw, 21px); font-weight: 700; }
+  .stat-card .sub { font-size: 11.5px; color: var(--text-dim); margin-top: 4px; }
+  .buy { color: var(--buy); } .sell { color: var(--sell); }
+  .fx-c { color: var(--fx); } .cum-c { color: var(--cum); }
+
   .panel {
     background: var(--card); border: 1px solid var(--card-border);
-    border-radius: var(--radius); padding: 18px; margin-bottom: 20px;
+    border-radius: var(--radius); padding: 16px; margin-bottom: 16px;
     box-shadow: var(--shadow);
   }
   .panel h2 {
-    margin: 0 0 14px; font-size: clamp(15px, 2vw, 17px);
+    margin: 0 0 12px; font-size: clamp(14px, 2vw, 16px);
     color: var(--text); display: flex; align-items: center; gap: 8px;
   }
   .panel h2::before {
-    content: ""; width: 4px; height: 18px; border-radius: 2px;
+    content: ""; width: 4px; height: 16px; border-radius: 2px;
     background: linear-gradient(180deg, var(--accent), var(--accent-2));
   }
   .chart-wrap { position: relative; width: 100%; height: 320px; }
-  .table-wrap { overflow-x: auto; -webkit-overflow-scrolling: touch; }
-  table { width: 100%; border-collapse: collapse; font-size: 13.5px; min-width: 520px; }
-  th, td { padding: 10px 12px; text-align: right; border-bottom: 1px solid rgba(255,255,255,0.06); white-space: nowrap; }
+
+  .table-wrap { overflow-x: auto; -webkit-overflow-scrolling: touch; max-height: 70vh; }
+  table {
+    width: 100%; border-collapse: collapse;
+    font-size: 13px; min-width: 680px;
+    font-variant-numeric: tabular-nums;
+  }
+  th, td { padding: 8px 10px; text-align: right; border-bottom: 1px solid rgba(255,255,255,0.05); white-space: nowrap; }
   th:first-child, td:first-child { text-align: left; }
-  thead th { color: var(--text-dim); font-weight: 600; font-size: 12.5px; background: rgba(0,0,0,0.2); position: sticky; top: 0; }
+  thead th {
+    color: #cbd5e1; font-weight: 700; font-size: 12.5px;
+    background: linear-gradient(180deg, #1e3a8a, #1e40af);
+    position: sticky; top: 0; z-index: 1;
+  }
   tbody tr:hover { background: rgba(255,255,255,0.03); }
-  .status { display: flex; align-items: center; gap: 8px; color: var(--text-dim); font-size: 13px; margin-top: 8px; min-height: 18px; }
+  td.tag { font-weight: 700; }
+  td.tag .pill { padding: 2px 8px; border-radius: 6px; font-size: 12px; font-weight: 700; }
+  td.tag .pill.in  { background: rgba(231,76,60,0.18); color: var(--buy); }
+  td.tag .pill.out { background: rgba(39,174,96,0.18); color: var(--sell); }
+  td.tag .pill.flat{ background: rgba(148,163,184,0.18); color: var(--text-dim); }
+
+  .status { display: flex; align-items: center; gap: 8px; color: var(--text-dim); font-size: 13px; margin-top: 6px; min-height: 18px; }
   .spinner { width: 14px; height: 14px; border: 2px solid rgba(255,255,255,0.2); border-top-color: var(--accent); border-radius: 50%; animation: spin .8s linear infinite; display: none; }
   .loading .spinner { display: inline-block; }
   @keyframes spin { to { transform: rotate(360deg); } }
-  footer.app-footer { text-align: center; color: var(--text-dim); font-size: 12px; margin-top: 28px; padding-top: 14px; border-top: 1px solid var(--card-border); }
+
+  .help dt { color: var(--accent); font-weight: 700; margin-top: 10px; font-size: 13.5px; }
+  .help dd { margin: 4px 0 0 0; color: var(--text-dim); font-size: 13px; line-height: 1.6; }
+  .color-legend { display: flex; flex-wrap: wrap; gap: 12px; margin-top: 10px; font-size: 12.5px; }
+  .color-legend span { display: inline-flex; align-items: center; gap: 6px; }
+  .color-legend i { width: 12px; height: 12px; border-radius: 3px; display: inline-block; }
+
+  footer.app-footer { text-align: center; color: var(--text-dim); font-size: 12px; margin-top: 22px; padding-top: 12px; border-top: 1px solid var(--card-border); }
+
   @media (max-width: 640px) {
-    .container { padding: 14px 12px 40px; }
-    header.app-header { padding: 14px; }
-    .panel, .controls, .stat-card { padding: 14px; }
-    th, td { padding: 8px 10px; font-size: 12.5px; }
-    .chart-wrap { height: 260px; }
+    .container { padding: 12px 10px 36px; }
+    .panel, .controls, .stat-card { padding: 12px; }
+    th, td { padding: 6px 8px; font-size: 12px; }
+    .chart-wrap { height: 240px; }
+    table { min-width: 640px; }
   }
 </style>
 </head>
@@ -153,7 +196,7 @@
       <h1>Fx Flow Tracker</h1>
       <p>Foreign Capital Inward Outward Remittance ｜ 台灣外資資金匯入匯出追蹤系統</p>
     </div>
-    <span class="badge"><span class="dot"></span> USD / TWD 即時匯率</span>
+    <span class="badge"><span class="dot"></span> USD/TWD · FINI · TAIEX</span>
   </header>
 
   <section class="controls" aria-label="查詢條件">
@@ -169,16 +212,24 @@
       <label for="rangePreset">快速區間</label>
       <select id="rangePreset">
         <option value="30">近 30 天</option>
-        <option value="90" selected>近 3 個月</option>
+        <option value="60" selected>近 60 天</option>
+        <option value="90">近 3 個月</option>
         <option value="180">近 6 個月</option>
         <option value="365">近 1 年</option>
         <option value="custom">自訂</option>
       </select>
     </div>
+    <div class="field">
+      <label for="taiexStockId">TAIEX 代表標的</label>
+      <select id="taiexStockId">
+        <option value="TAIEX" selected>大盤指數 (TAIEX)</option>
+        <option value="0050">元大台灣50 (0050)</option>
+      </select>
+    </div>
     <div class="actions">
-      <button id="btnFetch"   class="btn btn-primary">查詢匯率</button>
-      <button id="btnCSV"     class="btn btn-secondary" disabled>匯出 CSV</button>
-      <button id="btnExcel"   class="btn btn-secondary" disabled>匯出 Excel</button>
+      <button id="btnFetch"  class="btn btn-primary">查詢</button>
+      <button id="btnCSV"    class="btn btn-secondary" disabled>匯出 CSV</button>
+      <button id="btnExcel"  class="btn btn-secondary" disabled>匯出 Excel</button>
     </div>
   </section>
 
@@ -189,53 +240,131 @@
 
   <div class="status" id="status">
     <span class="spinner"></span>
-    <span id="statusText">請選擇日期區間後點擊「查詢匯率」</span>
+    <span id="statusText">請選擇日期區間後點擊「查詢」</span>
   </div>
 
-  <section class="stats" id="stats" hidden>
-    <div class="stat-card">
-      <div class="label">最新匯率 (USD/TWD)</div>
-      <div class="value" id="statLatest">—</div>
-      <div class="sub" id="statLatestDate"></div>
-    </div>
-    <div class="stat-card">
-      <div class="label">區間平均</div>
-      <div class="value" id="statAvg">—</div>
-      <div class="sub">資料筆數 <span id="statCount">0</span></div>
-    </div>
-    <div class="stat-card">
-      <div class="label">區間最高</div>
-      <div class="value up" id="statHigh">—</div>
-      <div class="sub" id="statHighDate"></div>
-    </div>
-    <div class="stat-card">
-      <div class="label">區間最低</div>
-      <div class="value down" id="statLow">—</div>
-      <div class="sub" id="statLowDate"></div>
-    </div>
+  <nav class="tabs" role="tablist">
+    <button class="tab-btn active" data-tab="daily">每日明細</button>
+    <button class="tab-btn" data-tab="monthly">月份彙總</button>
+    <button class="tab-btn" data-tab="fx">匯率走勢</button>
+    <button class="tab-btn" data-tab="help">資料說明</button>
+  </nav>
+
+  <!-- 每日明細 -->
+  <section class="tab-panel active" id="tab-daily">
+    <section class="stats" id="stats" hidden>
+      <div class="stat-card">
+        <div class="label">最新淨額 (M USD)</div>
+        <div class="value" id="statLatestNet">—</div>
+        <div class="sub" id="statLatestDate"></div>
+      </div>
+      <div class="stat-card">
+        <div class="label">區間累計淨額 (M USD)</div>
+        <div class="value" id="statCumNet">—</div>
+        <div class="sub">資料筆數 <span id="statCount">0</span></div>
+      </div>
+      <div class="stat-card">
+        <div class="label">最新匯率 USD/TWD</div>
+        <div class="value fx-c" id="statLatestFx">—</div>
+        <div class="sub" id="statFxDate"></div>
+      </div>
+      <div class="stat-card">
+        <div class="label">最新 TAIEX</div>
+        <div class="value" id="statLatestTaiex">—</div>
+        <div class="sub" id="statTaiexDate"></div>
+      </div>
+    </section>
+
+    <section class="panel">
+      <h2>外資資金匯入匯出每日明細</h2>
+      <div class="table-wrap">
+        <table id="dailyTable">
+          <thead>
+            <tr>
+              <th>日期</th>
+              <th>買入 (M USD)</th>
+              <th>賣出 (M USD)</th>
+              <th>淨額 (M USD)</th>
+              <th>累計淨額</th>
+              <th>USD/TWD</th>
+              <th>TWD 淨流 (億)</th>
+              <th>TAIEX</th>
+              <th>狀態</th>
+            </tr>
+          </thead>
+          <tbody></tbody>
+        </table>
+      </div>
+    </section>
   </section>
 
-  <section class="panel" id="chartPanel" hidden>
-    <h2>USD / TWD 匯率走勢</h2>
-    <div class="chart-wrap"><canvas id="fxChart"></canvas></div>
+  <!-- 月份彙總 -->
+  <section class="tab-panel" id="tab-monthly">
+    <section class="panel">
+      <h2>月份彙總</h2>
+      <div class="table-wrap">
+        <table id="monthlyTable">
+          <thead>
+            <tr>
+              <th>年月</th>
+              <th>買入 (M USD)</th>
+              <th>賣出 (M USD)</th>
+              <th>月淨額 (M USD)</th>
+              <th>月均匯率</th>
+              <th>TWD 淨流 (億)</th>
+              <th>月底 TAIEX</th>
+              <th>MoM %</th>
+            </tr>
+          </thead>
+          <tbody></tbody>
+        </table>
+      </div>
+    </section>
   </section>
 
-  <section class="panel" id="tablePanel" hidden>
-    <h2>匯率資料表</h2>
-    <div class="table-wrap">
-      <table id="fxTable">
-        <thead>
-          <tr>
-            <th>日期</th>
-            <th>現金買入</th>
-            <th>現金賣出</th>
-            <th>即期買入</th>
-            <th>即期賣出</th>
-          </tr>
-        </thead>
-        <tbody></tbody>
-      </table>
-    </div>
+  <!-- 匯率走勢 -->
+  <section class="tab-panel" id="tab-fx">
+    <section class="panel">
+      <h2>USD / TWD 匯率走勢</h2>
+      <div class="chart-wrap"><canvas id="fxChart"></canvas></div>
+    </section>
+    <section class="panel">
+      <h2>外資淨流量 vs TAIEX</h2>
+      <div class="chart-wrap"><canvas id="flowChart"></canvas></div>
+    </section>
+  </section>
+
+  <!-- 資料說明 -->
+  <section class="tab-panel" id="tab-help">
+    <section class="panel">
+      <h2>欄位說明與資料來源</h2>
+      <dl class="help">
+        <dt>日期</dt><dd>交易日（台股交易日）</dd>
+        <dt>買入 (M USD)</dt><dd>外資當日買進金額換算百萬美元，來源：FinMind <code>TaiwanStockInstitutionalInvestorsBuySell</code>（Foreign_Investor / Foreign_Dealer_Self）</dd>
+        <dt>賣出 (M USD)</dt><dd>外資當日賣出金額換算百萬美元，同上資料源</dd>
+        <dt>淨額 (M USD)</dt><dd>買入 − 賣出，正值代表資金匯入（買超）</dd>
+        <dt>累計淨額</dt><dd>區間累計淨流量，用於判斷資金持續流入 / 流出趨勢</dd>
+        <dt>USD/TWD</dt><dd>美元兌新台幣即期匯率，來源：FinMind <code>TaiwanExchangeRate</code>（spot 中價）</dd>
+        <dt>TWD 淨流 (億)</dt><dd>淨額換算為新台幣（億元）＝ 淨額(M USD) × 匯率 ÷ 100</dd>
+        <dt>TAIEX</dt><dd>大盤收盤指數，來源：FinMind <code>TaiwanStockPrice</code></dd>
+        <dt>狀態</dt><dd>匯入 (net &gt; 0) ／ 匯出 (net &lt; 0) ／ 持平 (net = 0)</dd>
+      </dl>
+
+      <h2 style="margin-top:18px;">色彩慣例（台股配色）</h2>
+      <div class="color-legend">
+        <span><i style="background:#e74c3c"></i> 紅色 上漲／匯入／買超／正值</span>
+        <span><i style="background:#27ae60"></i> 綠色 下跌／匯出／賣超／負值</span>
+        <span><i style="background:#f0a500"></i> 金色 匯率（中性欄位）</span>
+        <span><i style="background:#1f6feb"></i> 藍色 累計趨勢／中性指標</span>
+      </div>
+
+      <h2 style="margin-top:18px;">使用注意事項</h2>
+      <dl class="help">
+        <dt>資料更新排程</dt><dd>每日台灣時間 19:00 / 20:00 自動更新（前端瀏覽器排程 + GitHub Actions 排程）</dd>
+        <dt>FinMind 免費版</dt><dd>免費版可查約 60 日歷史資料；如需更長區間請於後端設定 token</dd>
+        <dt>延伸分析建議</dt><dd>建議搭配投信買賣超、融資融券、大股東持股變化交叉比對</dd>
+      </dl>
+    </section>
   </section>
 
   <footer class="app-footer">
@@ -243,28 +372,28 @@
   </footer>
 
 </div>
+
 <script>
-const FINMIND_CONFIG = Object.freeze({
+/* ===========================================================
+   Fx Flow Tracker - main logic
+   資料源：FinMind (TaiwanExchangeRate / TaiwanStockInstitutionalInvestorsBuySell / TaiwanStockPrice)
+   排程：台灣時間 每日 19:00 / 20:00
+   =========================================================== */
+const FINMIND = Object.freeze({
   endpoint: "https://api.finmindtrade.com/api/v4/data",
-  dataset:  "TaiwanExchangeRate",
-  currency: "USD",
   token: ""
 });
-
 const LOCAL_CACHE_URL = "data/usd_twd.json";
 const AUTO_UPDATE_HOURS = [19, 20];
 const AUTO_UPDATE_MINUTE = 0;
 
+// TAIEX 加權指數在 FinMind 中以 stock_id="TAIEX" 取得
 const $ = (id) => document.getElementById(id);
-const statusEl = $("status");
-const statusText = $("statusText");
-const btnFetch = $("btnFetch");
-const btnCSV = $("btnCSV");
-const btnExcel = $("btnExcel");
-const tbody = document.querySelector("#fxTable tbody");
+const statusEl = $("status"), statusText = $("statusText");
+const btnFetch = $("btnFetch"), btnCSV = $("btnCSV"), btnExcel = $("btnExcel");
 
-let fxData = [];
-let chart = null;
+let merged = [];          // 每日合併資料（依日期 DESC 排序）
+let chartFx = null, chartFlow = null;
 let autoUpdateTimer = null;
 
 document.addEventListener("DOMContentLoaded", async () => {
@@ -277,7 +406,7 @@ document.addEventListener("DOMContentLoaded", async () => {
 
 function initDateInputs() {
   const today = new Date();
-  const past = new Date(); past.setDate(today.getDate() - 90);
+  const past = new Date(); past.setDate(today.getDate() - 60);
   $("endDate").value = toISO(today);
   $("startDate").value = toISO(past);
 }
@@ -295,6 +424,17 @@ function bindEvents() {
     $("startDate").value = toISO(start);
     $("endDate").value = toISO(end);
   });
+  document.querySelectorAll(".tab-btn").forEach(btn => {
+    btn.addEventListener("click", () => {
+      document.querySelectorAll(".tab-btn").forEach(b => b.classList.remove("active"));
+      document.querySelectorAll(".tab-panel").forEach(p => p.classList.remove("active"));
+      btn.classList.add("active");
+      $("tab-" + btn.dataset.tab).classList.add("active");
+      // 切到走勢分頁時，若 chart 尚未繪，重新 resize
+      if (chartFx) chartFx.resize();
+      if (chartFlow) chartFlow.resize();
+    });
+  });
 }
 
 function toISO(d) {
@@ -303,183 +443,346 @@ function toISO(d) {
   const day = String(d.getDate()).padStart(2, "0");
   return y + "-" + m + "-" + day;
 }
-
 function setStatus(msg, loading=false) {
   statusText.textContent = msg;
   statusEl.classList.toggle("loading", !!loading);
 }
+function num(v) { const n = Number(v); return Number.isFinite(n) ? n : null; }
 
+/* ====== 主資料流 ====== */
 async function fetchData() {
-  const start = $("startDate").value;
-  const end = $("endDate").value;
+  const start = $("startDate").value, end = $("endDate").value;
   if (!start || !end) { setStatus("請選擇起訖日期"); return; }
   if (start > end)    { setStatus("起始日期不可晚於結束日期"); return; }
 
-  setStatus("正在載入匯率資料…", true);
+  setStatus("正在載入資料（匯率 / 外資 / TAIEX）…", true);
   btnFetch.disabled = true; btnCSV.disabled = true; btnExcel.disabled = true;
 
-  let data = await tryLocalCache(start, end);
-  let source = "本地快取（GitHub Actions 每日自動更新）";
+  try {
+    const taiexId = $("taiexStockId").value;
+    const [fx, fini, taiex] = await Promise.all([
+      fetchFinMind("TaiwanExchangeRate", { data_id: "USD", start_date: start, end_date: end }),
+      fetchFinMind("TaiwanStockInstitutionalInvestorsBuySell", { start_date: start, end_date: end }),
+      fetchFinMind("TaiwanStockPrice", { data_id: taiexId, start_date: start, end_date: end })
+    ]);
 
-  if (!data || data.length === 0) {
-    data = await tryFinMindAPI(start, end);
-    source = "FinMind API（即時查詢）";
+    merged = mergeData(fx, fini, taiex);
+    if (merged.length === 0) {
+      renderEmpty();
+      $("dataSource").textContent = "資料來源：無資料";
+      setStatus("該區間查無資料。FinMind 免費版約只有 60 天歷史。");
+      return;
+    }
+    renderAll();
+    btnCSV.disabled = false; btnExcel.disabled = false;
+    $("dataSource").textContent = "資料來源：FinMind API（即時查詢）";
+    setStatus("成功載入 " + merged.length + " 筆每日資料（" + start + " ~ " + end + "）");
+  } catch (e) {
+    console.error(e);
+    setStatus("資料取得失敗：" + (e.message || e));
+  } finally {
+    btnFetch.disabled = false;
   }
-
-  btnFetch.disabled = false;
-
-  if (!data || data.length === 0) {
-    fxData = [];
-    renderEmpty();
-    $("dataSource").textContent = "資料來源：無資料";
-    setStatus("該區間查無資料，請調整日期範圍。");
-    return;
-  }
-
-  fxData = data;
-  renderAll();
-  btnCSV.disabled = false; btnExcel.disabled = false;
-  $("dataSource").textContent = "資料來源：" + source;
-  setStatus("成功載入 " + fxData.length + " 筆資料（" + start + " ~ " + end + "）");
 }
 
-async function tryLocalCache(start, end) {
-  try {
-    const res = await fetch(LOCAL_CACHE_URL, { cache: "no-store" });
-    if (!res.ok) return null;
-    const json = await res.json();
-    const arr = Array.isArray(json) ? json : (json.data || []);
-    if (!arr.length) return null;
-    const filtered = arr
-      .map(normalizeRow)
-      .filter(r => r.date >= start && r.date <= end)
-      .sort((a,b) => a.date.localeCompare(b.date));
-    const lastCache = arr.map(r => r.date).sort().pop();
-    if (lastCache && daysDiff(lastCache, end) > 3) return null;
-    return filtered;
-  } catch { return null; }
+async function fetchFinMind(dataset, opts) {
+  const params = new URLSearchParams({ dataset, ...opts });
+  if (FINMIND.token) params.append("token", FINMIND.token);
+  const res = await fetch(FINMIND.endpoint + "?" + params);
+  if (!res.ok) throw new Error(dataset + " HTTP " + res.status);
+  const json = await res.json();
+  return Array.isArray(json?.data) ? json.data : [];
 }
 
-async function tryFinMindAPI(start, end) {
-  try {
-    const params = new URLSearchParams({
-      dataset: FINMIND_CONFIG.dataset,
-      data_id: FINMIND_CONFIG.currency,
-      start_date: start,
-      end_date: end
+/* ====== 資料合併與計算 ====== */
+function mergeData(fxArr, finiArr, taiexArr) {
+  // FX: 取每日 spot 中價
+  const fxMap = new Map();
+  for (const r of fxArr) {
+    const buy = num(r.spot_buy), sell = num(r.spot_sell);
+    const mid = (buy != null && sell != null) ? (buy + sell) / 2 : (buy ?? sell);
+    if (mid != null) fxMap.set(r.date, mid);
+  }
+  // TAIEX: close
+  const taiexMap = new Map();
+  for (const r of taiexArr) {
+    const c = num(r.close ?? r.Trading_Price ?? r.spot_close);
+    if (c != null) taiexMap.set(r.date, c);
+  }
+  // FINI: 取 Foreign_Investor + Foreign_Dealer_Self 的 buy / sell（單位元）
+  // FinMind 欄位為 buy / sell，金額單位為新台幣元
+  const finiAggByDate = new Map();
+  for (const r of finiArr) {
+    const name = r.name || r.security_type || "";
+    if (name !== "Foreign_Investor" && name !== "Foreign_Dealer_Self") continue;
+    const d = r.date;
+    if (!finiAggByDate.has(d)) finiAggByDate.set(d, { buy: 0, sell: 0 });
+    const agg = finiAggByDate.get(d);
+    agg.buy  += num(r.buy)  || 0;
+    agg.sell += num(r.sell) || 0;
+  }
+
+  // 以 FINI 日期為主軸（外資資金為核心需求）
+  const dates = Array.from(finiAggByDate.keys()).sort();
+  const rows = [];
+  for (const d of dates) {
+    const fx = fxMap.get(d);
+    const agg = finiAggByDate.get(d);
+    if (!fx) continue;   // 沒有匯率資料時跳過（同日為非交易日）
+    const buyTwd  = agg.buy;
+    const sellTwd = agg.sell;
+    const buyUSD  = buyTwd  / fx / 1e6;   // 元 → M USD
+    const sellUSD = sellTwd / fx / 1e6;
+    const netUSD  = buyUSD - sellUSD;
+    const netTwdYi = (netUSD * fx) / 100; // M USD × 匯率 / 100 = 億 TWD
+    rows.push({
+      date: d,
+      buy_musd: buyUSD,
+      sell_musd: sellUSD,
+      net_musd: netUSD,
+      fx,
+      net_twd_yi: netTwdYi,
+      taiex: taiexMap.get(d) ?? null
     });
-    if (FINMIND_CONFIG.token) params.append("token", FINMIND_CONFIG.token);
-    const res = await fetch(FINMIND_CONFIG.endpoint + "?" + params);
-    if (!res.ok) throw new Error("HTTP " + res.status);
-    const json = await res.json();
-    if (!json || !Array.isArray(json.data)) return null;
-    return json.data.map(normalizeRow).sort((a,b)=>a.date.localeCompare(b.date));
-  } catch (e) { console.error(e); return null; }
+  }
+  // 計算累計淨額（由舊到新累加）
+  let cum = 0;
+  for (const r of rows) { cum += r.net_musd; r.cum_musd = cum; }
+  // 排序：日期近的在前面
+  rows.sort((a, b) => b.date.localeCompare(a.date));
+  return rows;
 }
 
-function normalizeRow(r) {
-  return {
-    date: r.date,
-    cash_buy:  num(r.cash_buy),
-    cash_sell: num(r.cash_sell),
-    spot_buy:  num(r.spot_buy),
-    spot_sell: num(r.spot_sell)
-  };
-}
-function num(v) { const n = Number(v); return Number.isFinite(n) ? n : null; }
-function daysDiff(a, b) { return Math.abs((new Date(b) - new Date(a)) / 86400000); }
-
+/* ====== 渲染 ====== */
 function renderEmpty() {
   $("stats").hidden = true;
-  $("chartPanel").hidden = true;
-  $("tablePanel").hidden = true;
-  if (chart) { chart.destroy(); chart = null; }
-  tbody.innerHTML = "";
+  document.querySelector("#dailyTable tbody").innerHTML = "";
+  document.querySelector("#monthlyTable tbody").innerHTML = "";
+  if (chartFx) { chartFx.destroy(); chartFx = null; }
+  if (chartFlow) { chartFlow.destroy(); chartFlow = null; }
 }
-function renderAll() { renderStats(); renderChart(); renderTable();
-  $("stats").hidden = false; $("chartPanel").hidden = false; $("tablePanel").hidden = false;
+
+function renderAll() {
+  renderStats();
+  renderDailyTable();
+  renderMonthlyTable();
+  renderCharts();
+  $("stats").hidden = false;
 }
+
 function renderStats() {
-  const spotMid = fxData.map(r => avgMid(r)).filter(v => v !== null);
-  const latest = fxData[fxData.length - 1];
-  const max = Math.max(...spotMid); const min = Math.min(...spotMid);
-  const avg = spotMid.reduce((a,b)=>a+b,0) / spotMid.length;
-  const maxIdx = fxData.findIndex(r => avgMid(r) === max);
-  const minIdx = fxData.findIndex(r => avgMid(r) === min);
-  $("statLatest").textContent     = fmt(avgMid(latest));
-  $("statLatestDate").textContent = latest.date;
-  $("statAvg").textContent        = fmt(avg);
-  $("statCount").textContent      = fxData.length;
-  $("statHigh").textContent       = fmt(max);
-  $("statHighDate").textContent   = fxData[maxIdx]?.date || "";
-  $("statLow").textContent        = fmt(min);
-  $("statLowDate").textContent    = fxData[minIdx]?.date || "";
+  const latest = merged[0]; // 已 DESC 排序
+  const cumNet = merged.reduce((s, r) => s + r.net_musd, 0);
+  const fxLatest = merged.find(r => r.fx != null);
+  const taiexLatest = merged.find(r => r.taiex != null);
+
+  setVal("statLatestNet", fmtSigned(latest.net_musd), signClass(latest.net_musd));
+  $("statLatestDate").textContent = latest.date + "｜" + statusLabel(latest.net_musd);
+  setVal("statCumNet", fmtSigned(cumNet), signClass(cumNet));
+  $("statCount").textContent = merged.length;
+  $("statLatestFx").textContent = fxLatest ? fxLatest.fx.toFixed(3) : "—";
+  $("statFxDate").textContent = fxLatest ? fxLatest.date : "";
+  $("statLatestTaiex").textContent = taiexLatest && taiexLatest.taiex != null ? taiexLatest.taiex.toFixed(2) : "—";
+  $("statTaiexDate").textContent = taiexLatest ? taiexLatest.date : "";
 }
-function avgMid(r) {
-  const vals = [r.spot_buy, r.spot_sell].filter(v => v !== null);
-  return vals.length ? vals.reduce((a,b)=>a+b,0)/vals.length : null;
+
+function setVal(id, txt, cls) {
+  const el = $(id);
+  el.textContent = txt;
+  el.className = "value " + (cls || "");
 }
-function fmt(n) { return (n===null||n===undefined||!Number.isFinite(n)) ? "—" : n.toFixed(4); }
-function renderChart() {
-  const ctx = document.getElementById("fxChart").getContext("2d");
-  if (chart) chart.destroy();
-  chart = new Chart(ctx, {
-    type: "line",
-    data: { labels: fxData.map(r => r.date), datasets: [
-      { label: "即期買入", data: fxData.map(r => r.spot_buy),
-        borderColor: "#38bdf8", backgroundColor: "rgba(56,189,248,0.15)",
-        tension: 0.25, pointRadius: 0, borderWidth: 2, fill: true },
-      { label: "即期賣出", data: fxData.map(r => r.spot_sell),
-        borderColor: "#6366f1", backgroundColor: "rgba(99,102,241,0.10)",
-        tension: 0.25, pointRadius: 0, borderWidth: 2, fill: false }
-    ]},
-    options: {
-      responsive: true, maintainAspectRatio: false,
-      interaction: { mode: "index", intersect: false },
-      plugins: { legend: { labels: { color: "#e2e8f0" } }, tooltip: { mode: "index", intersect: false } },
-      scales: {
-        x: { ticks: { color: "#94a3b8", maxRotation: 0, autoSkip: true }, grid: { color: "rgba(255,255,255,0.05)" } },
-        y: { ticks: { color: "#94a3b8" }, grid: { color: "rgba(255,255,255,0.06)" } }
-      }
-    }
-  });
+function signClass(n) { return n > 0 ? "buy" : (n < 0 ? "sell" : ""); }
+function statusLabel(n) { return n > 0 ? "匯入" : (n < 0 ? "匯出" : "持平"); }
+function fmt(n, d=2) { return (n==null || !Number.isFinite(n)) ? "—" : n.toFixed(d); }
+function fmtSigned(n, d=2) {
+  if (n==null || !Number.isFinite(n)) return "—";
+  return (n > 0 ? "+" : "") + n.toFixed(d);
 }
-function renderTable() {
+
+function renderDailyTable() {
+  const tbody = document.querySelector("#dailyTable tbody");
   tbody.innerHTML = "";
   const frag = document.createDocumentFragment();
-  for (const r of fxData) {
+  for (const r of merged) {
     const tr = document.createElement("tr");
-    tr.innerHTML = "<td>" + r.date + "</td><td>" + fmt(r.cash_buy) + "</td><td>" + fmt(r.cash_sell) + "</td><td>" + fmt(r.spot_buy) + "</td><td>" + fmt(r.spot_sell) + "</td>";
+    const sCls = signClass(r.net_musd);
+    const tfCls = signClass(r.net_twd_yi);
+    const pill = r.net_musd > 0 ? '<span class="pill in">匯入</span>'
+              : r.net_musd < 0 ? '<span class="pill out">匯出</span>'
+              : '<span class="pill flat">持平</span>';
+    tr.innerHTML =
+      '<td>' + r.date + '</td>' +
+      '<td class="buy">' + fmt(r.buy_musd) + '</td>' +
+      '<td class="sell">' + fmt(r.sell_musd) + '</td>' +
+      '<td class="' + sCls + '">' + fmtSigned(r.net_musd) + '</td>' +
+      '<td class="cum-c">' + fmtSigned(r.cum_musd) + '</td>' +
+      '<td class="fx-c">' + fmt(r.fx, 3) + '</td>' +
+      '<td class="' + tfCls + '">' + fmtSigned(r.net_twd_yi) + '</td>' +
+      '<td>' + (r.taiex != null ? r.taiex.toFixed(2) : '—') + '</td>' +
+      '<td class="tag">' + pill + '</td>';
     frag.appendChild(tr);
   }
   tbody.appendChild(frag);
 }
 
+function renderMonthlyTable() {
+  const tbody = document.querySelector("#monthlyTable tbody");
+  tbody.innerHTML = "";
+  // 由舊到新做月度彙總（為了算 MoM），最後 DESC
+  const byMonth = new Map();
+  const sortedAsc = [...merged].sort((a,b)=>a.date.localeCompare(b.date));
+  for (const r of sortedAsc) {
+    const ym = r.date.slice(0,7);
+    if (!byMonth.has(ym)) byMonth.set(ym, { buy:0, sell:0, net:0, fxSum:0, fxN:0, twdYi:0, lastTaiex:null, lastDate:"" });
+    const g = byMonth.get(ym);
+    g.buy += r.buy_musd; g.sell += r.sell_musd; g.net += r.net_musd;
+    if (r.fx != null) { g.fxSum += r.fx; g.fxN += 1; }
+    g.twdYi += r.net_twd_yi;
+    if (r.taiex != null && r.date >= g.lastDate) { g.lastTaiex = r.taiex; g.lastDate = r.date; }
+  }
+  const months = Array.from(byMonth.keys()).sort();
+  let prevTaiex = null;
+  const monthlyRows = months.map(ym => {
+    const g = byMonth.get(ym);
+    const fxAvg = g.fxN ? g.fxSum / g.fxN : null;
+    const mom = (prevTaiex != null && g.lastTaiex != null) ? ((g.lastTaiex - prevTaiex) / prevTaiex * 100) : null;
+    prevTaiex = g.lastTaiex;
+    return { ym, ...g, fxAvg, mom };
+  }).reverse(); // DESC
+
+  const frag = document.createDocumentFragment();
+  for (const r of monthlyRows) {
+    const tr = document.createElement("tr");
+    const sCls = signClass(r.net);
+    const momCls = r.mom == null ? "" : signClass(r.mom);
+    tr.innerHTML =
+      '<td>' + r.ym + '</td>' +
+      '<td class="buy">' + fmt(r.buy) + '</td>' +
+      '<td class="sell">' + fmt(r.sell) + '</td>' +
+      '<td class="' + sCls + '">' + fmtSigned(r.net) + '</td>' +
+      '<td class="fx-c">' + fmt(r.fxAvg, 3) + '</td>' +
+      '<td class="' + signClass(r.twdYi) + '">' + fmtSigned(r.twdYi) + '</td>' +
+      '<td>' + (r.lastTaiex != null ? r.lastTaiex.toFixed(2) : '—') + '</td>' +
+      '<td class="' + momCls + '">' + (r.mom == null ? '—' : fmtSigned(r.mom, 2) + '%') + '</td>';
+    frag.appendChild(tr);
+  }
+  tbody.appendChild(frag);
+}
+
+function renderCharts() {
+  // ASC 給圖表
+  const asc = [...merged].sort((a,b)=>a.date.localeCompare(b.date));
+  const labels = asc.map(r => r.date);
+
+  const fxCtx = $("fxChart").getContext("2d");
+  if (chartFx) chartFx.destroy();
+  chartFx = new Chart(fxCtx, {
+    type: "line",
+    data: {
+      labels,
+      datasets: [{
+        label: "USD/TWD (spot mid)",
+        data: asc.map(r => r.fx),
+        borderColor: "#f0a500", backgroundColor: "rgba(240,165,0,0.15)",
+        tension: 0.25, pointRadius: 0, borderWidth: 2, fill: true
+      }]
+    },
+    options: chartOpts()
+  });
+
+  const flowCtx = $("flowChart").getContext("2d");
+  if (chartFlow) chartFlow.destroy();
+  chartFlow = new Chart(flowCtx, {
+    data: {
+      labels,
+      datasets: [
+        {
+          type: "bar",
+          label: "外資淨額 (M USD)",
+          data: asc.map(r => r.net_musd),
+          backgroundColor: asc.map(r => r.net_musd >= 0 ? "rgba(231,76,60,0.7)" : "rgba(39,174,96,0.7)"),
+          yAxisID: "y"
+        },
+        {
+          type: "line",
+          label: "TAIEX",
+          data: asc.map(r => r.taiex),
+          borderColor: "#1f6feb", backgroundColor: "rgba(31,111,235,0.1)",
+          tension: 0.25, pointRadius: 0, borderWidth: 2, yAxisID: "y1"
+        }
+      ]
+    },
+    options: {
+      ...chartOpts(),
+      scales: {
+        x: { ticks: { color: "#94a3b8", maxRotation: 0, autoSkip: true }, grid: { color: "rgba(255,255,255,0.05)" } },
+        y:  { position: "left",  ticks: { color: "#94a3b8" }, grid: { color: "rgba(255,255,255,0.06)" } },
+        y1: { position: "right", ticks: { color: "#94a3b8" }, grid: { drawOnChartArea: false } }
+      }
+    }
+  });
+}
+
+function chartOpts() {
+  return {
+    responsive: true, maintainAspectRatio: false,
+    interaction: { mode: "index", intersect: false },
+    plugins: { legend: { labels: { color: "#e2e8f0" } }, tooltip: { mode: "index", intersect: false } },
+    scales: {
+      x: { ticks: { color: "#94a3b8", maxRotation: 0, autoSkip: true }, grid: { color: "rgba(255,255,255,0.05)" } },
+      y: { ticks: { color: "#94a3b8" }, grid: { color: "rgba(255,255,255,0.06)" } }
+    }
+  };
+}
+
+/* ====== 匯出 ====== */
 function buildExportRows() {
-  return fxData.map(r => ({
-    "日期": r.date, "現金買入": r.cash_buy, "現金賣出": r.cash_sell,
-    "即期買入": r.spot_buy, "即期賣出": r.spot_sell
+  return merged.map(r => ({
+    "日期": r.date,
+    "買入 (M USD)": +r.buy_musd.toFixed(2),
+    "賣出 (M USD)": +r.sell_musd.toFixed(2),
+    "淨額 (M USD)": +r.net_musd.toFixed(2),
+    "累計淨額 (M USD)": +r.cum_musd.toFixed(2),
+    "USD/TWD": +r.fx.toFixed(4),
+    "TWD 淨流 (億)": +r.net_twd_yi.toFixed(2),
+    "TAIEX": r.taiex != null ? +r.taiex.toFixed(2) : "",
+    "狀態": statusLabel(r.net_musd)
   }));
 }
 function exportCSV() {
-  if (!fxData.length) return;
+  if (!merged.length) return;
   const rows = buildExportRows();
   const headers = Object.keys(rows[0]);
   const lines = [headers.join(",")];
   for (const r of rows) lines.push(headers.map(h => csvEscape(r[h])).join(","));
-  const blob = new Blob(["\uFEFF" + lines.join("\n")], { type: "text/csv;charset=utf-8;" });
+  const blob = new Blob(["﻿" + lines.join("
+")], { type: "text/csv;charset=utf-8;" });
   download(blob, "FxFlowTracker_" + $("startDate").value + "_" + $("endDate").value + ".csv");
 }
 function csvEscape(v) {
-  if (v === null || v === undefined) return "";
-  const s = String(v); return /[",\n]/.test(s) ? '"' + s.replace(/"/g,'""') + '"' : s;
+  if (v == null) return "";
+  const s = String(v); return /[",
+]/.test(s) ? '"' + s.replace(/"/g,'""') + '"' : s;
 }
 function exportExcel() {
-  if (!fxData.length) return;
+  if (!merged.length) return;
   const rows = buildExportRows();
   const ws = XLSX.utils.json_to_sheet(rows);
   const wb = XLSX.utils.book_new();
-  XLSX.utils.book_append_sheet(wb, ws, "USD-TWD");
+  XLSX.utils.book_append_sheet(wb, ws, "每日明細");
+  // 月度
+  const monthlyRows = Array.from(document.querySelectorAll("#monthlyTable tbody tr")).map(tr => {
+    const td = tr.querySelectorAll("td");
+    return {
+      "年月": td[0].innerText, "買入 (M USD)": td[1].innerText, "賣出 (M USD)": td[2].innerText,
+      "月淨額 (M USD)": td[3].innerText, "月均匯率": td[4].innerText, "TWD 淨流 (億)": td[5].innerText,
+      "月底 TAIEX": td[6].innerText, "MoM %": td[7].innerText
+    };
+  });
+  if (monthlyRows.length) {
+    const ws2 = XLSX.utils.json_to_sheet(monthlyRows);
+    XLSX.utils.book_append_sheet(wb, ws2, "月份彙總");
+  }
   XLSX.writeFile(wb, "FxFlowTracker_" + $("startDate").value + "_" + $("endDate").value + ".xlsx");
 }
 function download(blob, filename) {
@@ -490,18 +793,18 @@ function download(blob, filename) {
   setTimeout(() => { URL.revokeObjectURL(url); a.remove(); }, 0);
 }
 
+/* ====== 自動更新排程：台灣時間 19:00 / 20:00 ====== */
 function nowInTaipei() {
   const now = new Date();
-  const utcMs = now.getTime() + now.getTimezoneOffset() * 60000;
-  return new Date(utcMs + 8 * 3600 * 1000);
+  return new Date(now.getTime() + (now.getTimezoneOffset() + 480) * 60000);
 }
 function msUntilNextRun() {
   const tpe = nowInTaipei();
   let next = null;
   for (const h of AUTO_UPDATE_HOURS) {
-    const candidate = new Date(tpe);
-    candidate.setHours(h, AUTO_UPDATE_MINUTE, 0, 0);
-    if (candidate.getTime() > tpe.getTime()) { next = candidate; break; }
+    const c = new Date(tpe);
+    c.setHours(h, AUTO_UPDATE_MINUTE, 0, 0);
+    if (c.getTime() > tpe.getTime()) { next = c; break; }
   }
   if (!next) {
     next = new Date(tpe);
@@ -518,8 +821,7 @@ function scheduleNextAutoUpdate() {
   autoUpdateTimer = setTimeout(async () => {
     const tag = String(nextTpe.getHours()).padStart(2,"0") + ":00";
     setStatus("⏰ 自動更新中…（台灣時間 " + tag + "）", true);
-    try { await fetchData(); }
-    catch (e) { console.error(e); }
+    try { await fetchData(); } catch (e) { console.error(e); }
     scheduleNextAutoUpdate();
   }, delay);
 }

@@ -476,7 +476,7 @@ async function fetchData() {
     }
     renderAll();
     btnCSV.disabled = false; btnExcel.disabled = false;
-    $("dataSource").textContent = "資料來源：FinMind API（即時查詢）";
+    $("dataSource").textContent = "資料來源：TWSE BFI82U（外資）＋ FinMind（匯率／TAIEX）";
     setStatus("成功載入 " + merged.length + " 筆每日資料（" + start + " ~ " + end + "）");
   } catch (e) {
     console.error(e);

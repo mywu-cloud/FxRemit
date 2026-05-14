@@ -471,7 +471,7 @@ async function fetchData() {
     if (merged.length === 0) {
       renderEmpty();
       $("dataSource").textContent = "資料來源：無資料";
-      setStatus("該區間查無資料。FinMind 免費版約只有 60 天歷史。");
+      setStatus("該區間查無資料（可能為連假或尚未公告）。");
       return;
     }
     renderAll();

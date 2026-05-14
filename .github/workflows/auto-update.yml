@@ -1,0 +1,43 @@
+name: Auto Update FX Data
+
+on:
+  schedule:
+    # GitHub Actions cron 使用 UTC 時間
+    # 台灣 19:00 = UTC 11:00；台灣 20:00 = UTC 12:00
+    - cron: "0 11 * * *"
+    - cron: "0 12 * * *"
+  workflow_dispatch:
+
+jobs:
+  update-fx:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Fetch USD/TWD exchange rate (last 365 days)
+        run: |
+          mkdir -p data
+          END=$(TZ=Asia/Taipei date +%F)
+          START=$(TZ=Asia/Taipei date -d "365 days ago" +%F)
+          echo "Fetching ${START} ~ ${END}"
+          curl -sS "https://api.finmindtrade.com/api/v4/data?dataset=TaiwanExchangeRate&data_id=USD&start_date=${START}&end_date=${END}" \
+            -o data/usd_twd.json
+          # 顯示前幾筆驗證
+          head -c 300 data/usd_twd.json || true
+          echo ""
+
+      - name: Commit & push if changed
+        run: |
+          git config user.name  "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add data/usd_twd.json
+          if ! git diff --cached --quiet; then
+            TS=$(TZ=Asia/Taipei date +"%Y-%m-%d %H:%M")
+            git commit -m "chore(data): auto-update FX @ ${TS} TPE"
+            git push
+          else
+            echo "No changes."
+          fi

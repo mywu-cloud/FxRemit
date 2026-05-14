@@ -9,27 +9,27 @@
 <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
 <style>
   :root {
-    --bg-1: #0b1426;
-    --bg-2: #131e36;
-    --card: rgba(255,255,255,0.05);
-    --card-border: rgba(255,255,255,0.10);
-    --text: #e2e8f0;
-    --text-dim: #94a3b8;
-    --accent: #38bdf8;
-    --accent-2: #6366f1;
+    --bg-1: #f5f7fa;
+    --bg-2: #e9eef5;
+    --card: #ffffff;
+    --card-border: #d8dee9;
+    --text: #1a202c;
+    --text-dim: #5a6473;
+    --accent: #2563eb;
+    --accent-2: #1d4ed8;
     --buy: #e74c3c;       /* 紅 = 上漲 / 匯入 / 買超 */
     --sell: #27ae60;      /* 綠 = 下跌 / 匯出 / 賣超 */
     --fx: #f0a500;        /* 金 = 匯率 */
     --cum: #1f6feb;       /* 藍 = 累計 */
     --radius: 14px;
-    --shadow: 0 10px 30px rgba(0,0,0,0.35);
+    --shadow: 0 4px 16px rgba(0,0,0,0.06);
   }
   * { box-sizing: border-box; }
   html, body {
     margin: 0; padding: 0;
     font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", "PingFang TC",
                  "Microsoft JhengHei", Roboto, Helvetica, Arial, sans-serif;
-    background: linear-gradient(135deg, var(--bg-1), var(--bg-2));
+    background: var(--bg-1);
     color: var(--text);
     min-height: 100vh;
     -webkit-font-smoothing: antialiased;
@@ -58,8 +58,8 @@
   .badge {
     display: inline-flex; align-items: center; gap: 6px;
     padding: 6px 10px; border-radius: 999px;
-    background: rgba(56,189,248,0.12); color: var(--accent);
-    font-size: 12px; border: 1px solid rgba(56,189,248,0.25);
+    background: rgba(37,99,235,0.12); color: var(--accent);
+    font-size: 12px; border: 1px solid rgba(37,99,235,0.25);
   }
   .badge .dot { width: 7px; height: 7px; border-radius: 50%; background: var(--sell); box-shadow: 0 0 8px var(--sell); }
 
@@ -91,14 +91,14 @@
   .field input, .field select {
     width: 100%; padding: 9px 12px;
     border-radius: 10px; border: 1px solid var(--card-border);
-    background: rgba(0,0,0,0.25); color: var(--text);
+    background: #ffffff; color: var(--text);
     font-size: 14px; outline: none;
   }
   .field input:focus, .field select:focus {
     border-color: var(--accent);
-    box-shadow: 0 0 0 3px rgba(56,189,248,0.18);
+    box-shadow: 0 0 0 3px rgba(37,99,235,0.18);
   }
-  .actions { display: flex; flex-wrap: wrap; gap: 8px; align-items: end; }
+  .actions { display: flex; flex-wrap: nowrap; gap: 8px; align-items: end; }
   .btn {
     padding: 9px 14px; border: none; border-radius: 10px;
     font-size: 13.5px; font-weight: 600; cursor: pointer;
@@ -107,14 +107,14 @@
   .btn:active { transform: translateY(1px); }
   .btn:disabled { opacity: .55; cursor: not-allowed; }
   .btn-primary { background: linear-gradient(90deg, var(--accent), var(--accent-2)); color: white; }
-  .btn-secondary { background: rgba(255,255,255,0.08); color: var(--text); border: 1px solid var(--card-border); }
+  .btn-secondary { background: #ffffff; color: var(--text); border: 1px solid var(--card-border); }
   .btn-secondary:hover { filter: brightness(1.2); }
 
   .info-bar {
     display: flex; flex-wrap: wrap; justify-content: space-between; gap: 10px;
     padding: 10px 14px; margin-bottom: 14px;
-    background: rgba(56,189,248,0.06);
-    border: 1px solid rgba(56,189,248,0.18);
+    background: rgba(37,99,235,0.08);
+    border: 1px solid rgba(37,99,235,0.25);
     border-radius: 10px;
     font-size: 12.5px; color: var(--text-dim);
   }
@@ -152,14 +152,14 @@
     font-size: 13px; min-width: 680px;
     font-variant-numeric: tabular-nums;
   }
-  th, td { padding: 8px 10px; text-align: right; border-bottom: 1px solid rgba(255,255,255,0.05); white-space: nowrap; }
+  th, td { padding: 8px 10px; text-align: right; border-bottom: 1px solid #e2e8f0; white-space: nowrap; }
   th:first-child, td:first-child { text-align: left; }
   thead th {
-    color: #cbd5e1; font-weight: 700; font-size: 12.5px;
-    background: linear-gradient(180deg, #1e3a8a, #1e40af);
+    color: #ffffff; font-weight: 700; font-size: 12.5px;
+    background: linear-gradient(180deg, #1e3a8a, #1e40af); color: #ffffff;
     position: sticky; top: 0; z-index: 1;
   }
-  tbody tr:hover { background: rgba(255,255,255,0.03); }
+  tbody tr:hover { background: rgba(37,99,235,0.06); }
   td.tag { font-weight: 700; }
   td.tag .pill { padding: 2px 8px; border-radius: 6px; font-size: 12px; font-weight: 700; }
   td.tag .pill.in  { background: rgba(231,76,60,0.18); color: var(--buy); }
@@ -167,7 +167,7 @@
   td.tag .pill.flat{ background: rgba(148,163,184,0.18); color: var(--text-dim); }
 
   .status { display: flex; align-items: center; gap: 8px; color: var(--text-dim); font-size: 13px; margin-top: 6px; min-height: 18px; }
-  .spinner { width: 14px; height: 14px; border: 2px solid rgba(255,255,255,0.2); border-top-color: var(--accent); border-radius: 50%; animation: spin .8s linear infinite; display: none; }
+  .spinner { width: 14px; height: 14px; border: 2px solid rgba(0,0,0,0.15); border-top-color: var(--accent); border-radius: 50%; animation: spin .8s linear infinite; display: none; }
   .loading .spinner { display: inline-block; }
   @keyframes spin { to { transform: rotate(360deg); } }
 
@@ -400,6 +400,7 @@ document.addEventListener("DOMContentLoaded", async () => {
   $("year").textContent = new Date().getFullYear();
   initDateInputs();
   bindEvents();
+  setupDailySort();
   scheduleNextAutoUpdate();
   await fetchData();
 });
@@ -592,6 +593,54 @@ function setVal(id, txt, cls) {
   el.className = "value " + (cls || "");
 }
 function signClass(n) { return n > 0 ? "buy" : (n < 0 ? "sell" : ""); }
+let dailySortKey = "date";
+let dailySortDir = "desc";
+function sortDailyRows(rows) {
+  const k = dailySortKey, dir = dailySortDir === "asc" ? 1 : -1;
+  return rows.sort((a, b) => {
+    const av = a[k], bv = b[k];
+    if (av == null && bv == null) return 0;
+    if (av == null) return 1;
+    if (bv == null) return -1;
+    if (typeof av === "number" && typeof bv === "number") return (av - bv) * dir;
+    return String(av).localeCompare(String(bv)) * dir;
+  });
+}
+function setupDailySort() {
+  const ths = document.querySelectorAll("#dailyTable thead th");
+  const keys = ["date","buy_musd","sell_musd","net_musd","cum_musd","fx","net_twd_yi","taiex","status"];
+  ths.forEach((th, i) => {
+    if (i >= keys.length || keys[i] === "status") return;
+    th.style.cursor = "pointer";
+    th.title = "點擊排序";
+    th.addEventListener("click", () => {
+      const k = keys[i];
+      if (dailySortKey === k) {
+        dailySortDir = dailySortDir === "asc" ? "desc" : "asc";
+      } else {
+        dailySortKey = k;
+        dailySortDir = "desc";
+      }
+      updateDailySortIndicators();
+      renderDailyTable();
+    });
+  });
+  updateDailySortIndicators();
+}
+function updateDailySortIndicators() {
+  const ths = document.querySelectorAll("#dailyTable thead th");
+  const keys = ["date","buy_musd","sell_musd","net_musd","cum_musd","fx","net_twd_yi","taiex","status"];
+  ths.forEach((th, i) => {
+    const base = th.getAttribute("data-base") || th.textContent.replace(/[\u25B2\u25BC]\s*$/, "").trim();
+    th.setAttribute("data-base", base);
+    if (i < keys.length && keys[i] === dailySortKey) {
+      th.textContent = base + " " + (dailySortDir === "asc" ? "\u25B2" : "\u25BC");
+    } else {
+      th.textContent = base;
+    }
+  });
+}
+
 function statusLabel(n) { return n > 0 ? "匯入" : (n < 0 ? "匯出" : "持平"); }
 function fmt(n, d=2) { return (n==null || !Number.isFinite(n)) ? "—" : n.toFixed(d); }
 function fmtSigned(n, d=2) {
@@ -603,7 +652,8 @@ function renderDailyTable() {
   const tbody = document.querySelector("#dailyTable tbody");
   tbody.innerHTML = "";
   const frag = document.createDocumentFragment();
-  for (const r of merged) {
+  const sortedRows = sortDailyRows(merged.slice());
+  for (const r of sortedRows) {
     const tr = document.createElement("tr");
     const sCls = signClass(r.net_musd);
     const tfCls = signClass(r.net_twd_yi);
@@ -715,9 +765,9 @@ function renderCharts() {
     options: {
       ...chartOpts(),
       scales: {
-        x: { ticks: { color: "#94a3b8", maxRotation: 0, autoSkip: true }, grid: { color: "rgba(255,255,255,0.05)" } },
-        y:  { position: "left",  ticks: { color: "#94a3b8" }, grid: { color: "rgba(255,255,255,0.06)" } },
-        y1: { position: "right", ticks: { color: "#94a3b8" }, grid: { drawOnChartArea: false } }
+        x: { ticks: { color: "#475569", maxRotation: 0, autoSkip: true }, grid: { color: "rgba(0,0,0,0.08)" } },
+        y:  { position: "left",  ticks: { color: "#475569" }, grid: { color: "rgba(0,0,0,0.08)" } },
+        y1: { position: "right", ticks: { color: "#475569" }, grid: { drawOnChartArea: false } }
       }
     }
   });
@@ -729,8 +779,8 @@ function chartOpts() {
     interaction: { mode: "index", intersect: false },
     plugins: { legend: { labels: { color: "#e2e8f0" } }, tooltip: { mode: "index", intersect: false } },
     scales: {
-      x: { ticks: { color: "#94a3b8", maxRotation: 0, autoSkip: true }, grid: { color: "rgba(255,255,255,0.05)" } },
-      y: { ticks: { color: "#94a3b8" }, grid: { color: "rgba(255,255,255,0.06)" } }
+      x: { ticks: { color: "#475569", maxRotation: 0, autoSkip: true }, grid: { color: "rgba(0,0,0,0.08)" } },
+      y: { ticks: { color: "#475569" }, grid: { color: "rgba(0,0,0,0.08)" } }
     }
   };
 }
@@ -755,14 +805,12 @@ function exportCSV() {
   const headers = Object.keys(rows[0]);
   const lines = [headers.join(",")];
   for (const r of rows) lines.push(headers.map(h => csvEscape(r[h])).join(","));
-  const blob = new Blob(["﻿" + lines.join("
-")], { type: "text/csv;charset=utf-8;" });
+  const blob = new Blob(["﻿" + lines.join("\n")], { type: "text/csv;charset=utf-8;" });
   download(blob, "FxFlowTracker_" + $("startDate").value + "_" + $("endDate").value + ".csv");
 }
 function csvEscape(v) {
   if (v == null) return "";
-  const s = String(v); return /[",
-]/.test(s) ? '"' + s.replace(/"/g,'""') + '"' : s;
+  const s = String(v); return /[",\n]/.test(s) ? '"' + s.replace(/"/g,'""') + '"' : s;
 }
 function exportExcel() {
   if (!merged.length) return;

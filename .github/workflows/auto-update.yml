@@ -2,7 +2,7 @@ name: Auto Update FX Data
 
 on:
   schedule:
-    # GitHub Actions cron 使用 UTC 時間
+    # GitHub Actions cron 使用 UTC
     # 台灣 19:00 = UTC 11:00；台灣 20:00 = UTC 12:00
     - cron: "0 11 * * *"
     - cron: "0 12 * * *"
@@ -17,26 +17,54 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
-      - name: Fetch USD/TWD exchange rate (last 365 days)
+      - name: Set date range (last 365 days, TPE)
+        id: range
+        run: |
+          echo "end=$(TZ=Asia/Taipei date +%F)"                       >> "$GITHUB_OUTPUT"
+          echo "start=$(TZ=Asia/Taipei date -d '365 days ago' +%F)"   >> "$GITHUB_OUTPUT"
+
+      - name: Fetch USD/TWD exchange rate (FinMind)
         run: |
           mkdir -p data
-          END=$(TZ=Asia/Taipei date +%F)
-          START=$(TZ=Asia/Taipei date -d "365 days ago" +%F)
-          echo "Fetching ${START} ~ ${END}"
-          curl -sS "https://api.finmindtrade.com/api/v4/data?dataset=TaiwanExchangeRate&data_id=USD&start_date=${START}&end_date=${END}" \
+          START="${{ steps.range.outputs.start }}"
+          END="${{ steps.range.outputs.end }}"
+          echo "FX  ${START} ~ ${END}"
+          curl -sS --retry 3 --retry-delay 2 \
+            "https://api.finmindtrade.com/api/v4/data?dataset=TaiwanExchangeRate&data_id=USD&start_date=${START}&end_date=${END}" \
             -o data/usd_twd.json
-          # 顯示前幾筆驗證
-          head -c 300 data/usd_twd.json || true
+          head -c 200 data/usd_twd.json || true
+          echo ""
+
+      - name: Fetch TAIEX (FinMind)
+        run: |
+          START="${{ steps.range.outputs.start }}"
+          END="${{ steps.range.outputs.end }}"
+          echo "TAIEX  ${START} ~ ${END}"
+          curl -sS --retry 3 --retry-delay 2 \
+            "https://api.finmindtrade.com/api/v4/data?dataset=TaiwanStockPrice&data_id=TAIEX&start_date=${START}&end_date=${END}" \
+            -o data/taiex.json
+          head -c 200 data/taiex.json || true
+          echo ""
+
+      - name: Fetch foreign-capital daily flow (TWSE BFI82U)
+        env:
+          START: ${{ steps.range.outputs.start }}
+          END:   ${{ steps.range.outputs.end }}
+        run: |
+          python3 scripts/fetch_twse_bfi82u.py \
+            --start "$START" --end "$END" \
+            --out   data/foreign_flow.json
+          head -c 200 data/foreign_flow.json || true
           echo ""
 
       - name: Commit & push if changed
         run: |
           git config user.name  "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
-          git add data/usd_twd.json
+          git add data/usd_twd.json data/taiex.json data/foreign_flow.json
           if ! git diff --cached --quiet; then
             TS=$(TZ=Asia/Taipei date +"%Y-%m-%d %H:%M")
-            git commit -m "chore(data): auto-update FX @ ${TS} TPE"
+            git commit -m "chore(data): auto-update FX/TAIEX/FINI @ ${TS} TPE"
             git push
           else
             echo "No changes."

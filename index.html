@@ -9,183 +9,215 @@
 <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
 <style>
   :root {
-    --bg-1: #f5f7fa;
-    --bg-2: #e9eef5;
-    --card: #ffffff;
-    --card-border: #d8dee9;
-    --text: #1a202c;
-    --text-dim: #5a6473;
-    --accent: #2563eb;
-    --accent-2: #1d4ed8;
-    --buy: #e74c3c;       /* 紅 = 上漲 / 匯入 / 買超 */
-    --sell: #27ae60;      /* 綠 = 下跌 / 匯出 / 賣超 */
-    --fx: #f0a500;        /* 金 = 匯率 */
-    --cum: #1f6feb;       /* 藍 = 累計 */
-    --radius: 14px;
-    --shadow: 0 4px 16px rgba(0,0,0,0.06);
-  }
-  * { box-sizing: border-box; }
-  html, body {
-    margin: 0; padding: 0;
-    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", "PingFang TC",
-                 "Microsoft JhengHei", Roboto, Helvetica, Arial, sans-serif;
-    background: var(--bg-1);
-    color: var(--text);
-    min-height: 100vh;
-    -webkit-font-smoothing: antialiased;
-  }
-  .container { max-width: 1280px; margin: 0 auto; padding: 22px 18px 60px; }
+  --bg-1: #f5f7fa;
+  --bg-2: #e9eef5;
+  --card: #ffffff;
+  --card-border: #d8dee9;
+  --text: #111418;          /* 加深 */
+  --text-dim: #3d4654;      /* 加深 */
+  --accent: #2563eb;
+  --accent-2: #1d4ed8;
+  --buy:  #c81e1e;          /* 紅 = 上漲 / 匯入 / 買超 / 正值（加深） */
+  --sell: #0a7d2c;          /* 綠 = 下跌 / 匯出 / 賣超 / 負值（加深） */
+  --fx:   #b8860b;          /* 金 = 匯率（加深） */
+  --cum:  #1448a8;          /* 藍 = 累計（加深） */
+  --radius: 14px;
+  --shadow: 0 4px 16px rgba(0,0,0,0.06);
+}
+* { box-sizing: border-box; }
 
-  header.app-header {
-    display: flex; align-items: center; justify-content: space-between;
-    flex-wrap: wrap; gap: 12px;
-    padding: 16px 20px;
-    background: var(--card);
-    border: 1px solid var(--card-border);
-    border-radius: var(--radius);
-    backdrop-filter: blur(10px);
-    box-shadow: var(--shadow);
-    margin-bottom: 18px;
-  }
-  .brand h1 {
-    margin: 0;
-    font-size: clamp(18px, 2.4vw, 24px);
-    background: linear-gradient(90deg, var(--accent), var(--accent-2));
-    -webkit-background-clip: text; background-clip: text; color: transparent;
-    letter-spacing: 0.5px;
-  }
-  .brand p { margin: 4px 0 0; color: var(--text-dim); font-size: clamp(11px, 1.5vw, 13px); }
-  .badge {
-    display: inline-flex; align-items: center; gap: 6px;
-    padding: 6px 10px; border-radius: 999px;
-    background: rgba(37,99,235,0.12); color: var(--accent);
-    font-size: 12px; border: 1px solid rgba(37,99,235,0.25);
-  }
-  .badge .dot { width: 7px; height: 7px; border-radius: 50%; background: var(--sell); box-shadow: 0 0 8px var(--sell); }
+/* 統一字型：Helvetica Neue（中文 fallback） */
+html, body {
+  margin: 0; padding: 0;
+  font-family: "Helvetica Neue", Helvetica, Arial,
+               "PingFang TC", "Heiti TC", "Microsoft JhengHei", sans-serif;
+  background: var(--bg-1);
+  color: var(--text);
+  min-height: 100vh;
+  -webkit-font-smoothing: antialiased;
+}
 
-  .tabs { display: flex; flex-wrap: wrap; gap: 4px; margin-bottom: 16px; border-bottom: 1px solid var(--card-border); }
-  .tab-btn {
-    padding: 10px 16px; border: none; background: transparent;
-    color: var(--text-dim); cursor: pointer;
-    font-size: 14px; font-weight: 600;
-    border-bottom: 2px solid transparent;
-    transition: color .2s, border-color .2s;
-  }
-  .tab-btn:hover { color: var(--text); }
-  .tab-btn.active { color: var(--accent); border-bottom-color: var(--accent); }
+/* 桌機（≥1024px）字級最小 13pt（≈17.3px）；平板與手機保持原樣 */
+@media (min-width: 1024px) {
+  body, p, span, div, label, input, select, button, td, th { font-size: 13pt; }
+  table, table th, table td { font-size: 13pt; }
+}
 
-  .tab-panel { display: none; }
-  .tab-panel.active { display: block; }
+.container { max-width: 1280px; margin: 0 auto; padding: 22px 18px 60px; }
 
-  .controls {
-    display: grid;
-    grid-template-columns: repeat(auto-fit, minmax(170px, 1fr));
-    gap: 12px; padding: 16px;
-    background: var(--card);
-    border: 1px solid var(--card-border);
-    border-radius: var(--radius);
-    margin-bottom: 14px;
-    box-shadow: var(--shadow);
-  }
-  .field label { display: block; font-size: 12.5px; color: var(--text-dim); margin-bottom: 6px; }
-  .field input, .field select {
-    width: 100%; padding: 9px 12px;
-    border-radius: 10px; border: 1px solid var(--card-border);
-    background: #ffffff; color: var(--text);
-    font-size: 14px; outline: none;
-  }
-  .field input:focus, .field select:focus {
-    border-color: var(--accent);
-    box-shadow: 0 0 0 3px rgba(37,99,235,0.18);
-  }
-  .actions { display: flex; flex-wrap: nowrap; gap: 8px; align-items: end; grid-column: 1 / -1; }
-  .btn {
-    padding: 9px 14px; border: none; border-radius: 10px; white-space: nowrap;
-    font-size: 13.5px; font-weight: 600; cursor: pointer;
-    transition: transform .08s ease, filter .2s ease, opacity .2s;
-  }
-  .btn:active { transform: translateY(1px); }
-  .btn:disabled { opacity: .55; cursor: not-allowed; }
-  .btn-primary { background: linear-gradient(90deg, var(--accent), var(--accent-2)); color: white; }
-  .btn-secondary { background: #ffffff; color: var(--text); border: 1px solid var(--card-border); }
-  .btn-secondary:hover { filter: brightness(1.2); }
+header.app-header {
+  display: flex; align-items: center; justify-content: space-between;
+  flex-wrap: wrap; gap: 12px;
+  padding: 16px 20px;
+  background: var(--card);
+  border: 1px solid var(--card-border);
+  border-radius: var(--radius);
+  backdrop-filter: blur(10px);
+  box-shadow: var(--shadow);
+  margin-bottom: 18px;
+}
+.brand h1 {
+  margin: 0;
+  font-size: clamp(18px, 2.4vw, 24px);
+  background: linear-gradient(90deg, var(--accent), var(--accent-2));
+  -webkit-background-clip: text; background-clip: text; color: transparent;
+  letter-spacing: 0.5px;
+}
+.brand p { margin: 4px 0 0; color: var(--text-dim); font-size: clamp(11px, 1.5vw, 13px); }
+.badge {
+  display: inline-flex; align-items: center; gap: 6px;
+  padding: 6px 10px; border-radius: 999px;
+  background: rgba(37,99,235,0.12); color: var(--accent);
+  font-size: 12px; border: 1px solid rgba(37,99,235,0.25);
+}
+.badge .dot { width: 7px; height: 7px; border-radius: 50%; background: var(--sell); box-shadow: 0 0 8px var(--sell); }
 
-  .info-bar {
-    display: flex; flex-wrap: wrap; justify-content: space-between; gap: 10px;
-    padding: 10px 14px; margin-bottom: 14px;
-    background: rgba(37,99,235,0.08);
-    border: 1px solid rgba(37,99,235,0.25);
-    border-radius: 10px;
-    font-size: 12.5px; color: var(--text-dim);
-  }
-  .info-bar .auto { color: var(--accent); }
+.tabs { display: flex; flex-wrap: wrap; gap: 4px; margin-bottom: 16px; border-bottom: 1px solid var(--card-border); }
+.tab-btn {
+  padding: 10px 16px; border: none; background: transparent;
+  color: var(--text-dim); cursor: pointer;
+  font-size: 14px; font-weight: 600;
+  border-bottom: 2px solid transparent;
+  transition: color .2s, border-color .2s;
+}
+.tab-btn:hover { color: var(--text); }
+.tab-btn.active { color: var(--accent); border-bottom-color: var(--accent); }
 
-  .stats { display: grid; grid-template-columns: repeat(auto-fit, minmax(170px, 1fr)); gap: 12px; margin-bottom: 18px; }
-  .stat-card {
-    background: var(--card); border: 1px solid var(--card-border);
-    border-radius: var(--radius); padding: 14px 16px; box-shadow: var(--shadow);
-  }
-  .stat-card .label { color: var(--text-dim); font-size: 12px; margin-bottom: 6px; }
-  .stat-card .value { font-size: clamp(17px, 2.6vw, 21px); font-weight: 700; }
-  .stat-card .sub { font-size: 11.5px; color: var(--text-dim); margin-top: 4px; }
-  .buy { color: var(--buy); } .sell { color: var(--sell); }
-  .fx-c { color: var(--fx); } .cum-c { color: var(--cum); }
+.tab-panel { display: none; }
+.tab-panel.active { display: block; }
 
-  .panel {
-    background: var(--card); border: 1px solid var(--card-border);
-    border-radius: var(--radius); padding: 16px; margin-bottom: 16px;
-    box-shadow: var(--shadow);
-  }
-  .panel h2 {
-    margin: 0 0 12px; font-size: clamp(14px, 2vw, 16px);
-    color: var(--text); display: flex; align-items: center; gap: 8px;
-  }
-  .panel h2::before {
-    content: ""; width: 4px; height: 16px; border-radius: 2px;
-    background: linear-gradient(180deg, var(--accent), var(--accent-2));
-  }
-  .chart-wrap { position: relative; width: 100%; height: 320px; }
+/* 查詢條件：改為 flex，使「查詢／匯出 CSV／匯出 Excel」與日期同列 */
+.controls {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-end;
+  gap: 12px;
+  padding: 16px;
+  background: var(--card);
+  border: 1px solid var(--card-border);
+  border-radius: var(--radius);
+  margin-bottom: 14px;
+  box-shadow: var(--shadow);
+}
+.controls .field { flex: 0 0 auto; min-width: 150px; }
+.field label { display: block; font-size: 12.5px; color: var(--text-dim); margin-bottom: 6px; }
+.field input, .field select {
+  width: 100%; padding: 9px 12px;
+  border-radius: 10px; border: 1px solid var(--card-border);
+  background: #ffffff; color: var(--text);
+  font-size: 14px; outline: none;
+}
+.field input:focus, .field select:focus {
+  border-color: var(--accent);
+  box-shadow: 0 0 0 3px rgba(37,99,235,0.18);
+}
+.actions {
+  display: flex; flex-wrap: nowrap; gap: 8px; align-items: flex-end;
+  flex: 0 0 auto;
+  margin-left: auto;       /* 桌機推到右側；手機因 wrap 自動換行 */
+}
+.btn {
+  padding: 9px 14px; border: none; border-radius: 10px; white-space: nowrap;
+  font-size: 13.5px; font-weight: 600; cursor: pointer;
+  transition: transform .08s ease, filter .2s ease, opacity .2s;
+}
+.btn:active { transform: translateY(1px); }
+.btn:disabled { opacity: .55; cursor: not-allowed; }
+.btn-primary { background: linear-gradient(90deg, var(--accent), var(--accent-2)); color: white; }
+.btn-secondary { background: #ffffff; color: var(--text); border: 1px solid var(--card-border); }
+.btn-secondary:hover { filter: brightness(1.2); }
 
-  .table-wrap { overflow-x: auto; -webkit-overflow-scrolling: touch; max-height: 70vh; }
-  table {
-    width: 100%; border-collapse: collapse;
-    font-size: 13px; min-width: 680px;
-    font-variant-numeric: tabular-nums;
-  }
-  th, td { padding: 8px 10px; text-align: right; border-bottom: 1px solid #e2e8f0; white-space: nowrap; }
-  th:first-child, td:first-child { text-align: left; }
-  thead th {
-    color: #ffffff; font-weight: 700; font-size: 12.5px;
-    background: linear-gradient(180deg, #1e3a8a, #1e40af); color: #ffffff;
-    position: sticky; top: 0; z-index: 1;
-  }
-  tbody tr:hover { background: rgba(37,99,235,0.06); }
-  td.tag { font-weight: 700; }
-  td.tag .pill { padding: 2px 8px; border-radius: 6px; font-size: 12px; font-weight: 700; }
-  td.tag .pill.in  { background: rgba(231,76,60,0.18); color: var(--buy); }
-  td.tag .pill.out { background: rgba(39,174,96,0.18); color: var(--sell); }
-  td.tag .pill.flat{ background: rgba(148,163,184,0.18); color: var(--text-dim); }
+.info-bar {
+  display: flex; flex-wrap: wrap; justify-content: space-between; gap: 10px;
+  padding: 10px 14px; margin-bottom: 14px;
+  background: rgba(37,99,235,0.08);
+  border: 1px solid rgba(37,99,235,0.25);
+  border-radius: 10px;
+  font-size: 12.5px; color: var(--text-dim);
+}
+.info-bar .auto { color: var(--accent); }
 
-  .status { display: flex; align-items: center; gap: 8px; color: var(--text-dim); font-size: 13px; margin-top: 6px; min-height: 18px; }
-  .spinner { width: 14px; height: 14px; border: 2px solid rgba(0,0,0,0.15); border-top-color: var(--accent); border-radius: 50%; animation: spin .8s linear infinite; display: none; }
-  .loading .spinner { display: inline-block; }
-  @keyframes spin { to { transform: rotate(360deg); } }
+.stats { display: grid; grid-template-columns: repeat(auto-fit, minmax(170px, 1fr)); gap: 12px; margin-bottom: 18px; }
+.stat-card {
+  background: var(--card); border: 1px solid var(--card-border);
+  border-radius: var(--radius); padding: 14px 16px; box-shadow: var(--shadow);
+}
+.stat-card .label { color: var(--text-dim); font-size: 12px; margin-bottom: 6px; }
+.stat-card .value { font-size: clamp(17px, 2.6vw, 21px); font-weight: 700; }
+.stat-card .sub { font-size: 11.5px; color: var(--text-dim); margin-top: 4px; }
 
-  .help dt { color: var(--accent); font-weight: 700; margin-top: 10px; font-size: 13.5px; }
-  .help dd { margin: 4px 0 0 0; color: var(--text-dim); font-size: 13px; line-height: 1.6; }
-  .color-legend { display: flex; flex-wrap: wrap; gap: 12px; margin-top: 10px; font-size: 12.5px; }
-  .color-legend span { display: inline-flex; align-items: center; gap: 6px; }
-  .color-legend i { width: 12px; height: 12px; border-radius: 3px; display: inline-block; }
+/* 台股配色（資料欄位） */
+.buy   { color: var(--buy);  }
+.sell  { color: var(--sell); }
+.fx-c  { color: var(--fx);   }
+.cum-c { color: var(--cum);  }
 
-  footer.app-footer { text-align: center; color: var(--text-dim); font-size: 12px; margin-top: 22px; padding-top: 12px; border-top: 1px solid var(--card-border); }
+.panel {
+  background: var(--card); border: 1px solid var(--card-border);
+  border-radius: var(--radius); padding: 16px; margin-bottom: 16px;
+  box-shadow: var(--shadow);
+}
+.panel h2 {
+  margin: 0 0 12px; font-size: clamp(14px, 2vw, 16px);
+  color: var(--text); display: flex; align-items: center; gap: 8px;
+}
+.panel h2::before {
+  content: ""; width: 4px; height: 16px; border-radius: 2px;
+  background: linear-gradient(180deg, var(--accent), var(--accent-2));
+}
+.chart-wrap { position: relative; width: 100%; height: 320px; }
 
-  @media (max-width: 640px) {
-    .container { padding: 12px 10px 36px; }
-    .panel, .controls, .stat-card { padding: 12px; }
-    th, td { padding: 6px 8px; font-size: 12px; }
-    .chart-wrap { height: 240px; }
-    table { min-width: 640px; }
-  }
+.table-wrap { overflow-x: auto; -webkit-overflow-scrolling: touch; max-height: 70vh; }
+table {
+  width: 100%; border-collapse: collapse;
+  font-size: 13px; min-width: 680px;
+  font-variant-numeric: tabular-nums;
+}
+th, td { padding: 8px 10px; text-align: right; border-bottom: 1px solid #e2e8f0; white-space: nowrap; }
+th:first-child, td:first-child { text-align: left; }
+
+/* 表頭：白字 + 加粗，與藍底高對比 */
+thead th {
+  color: #ffffff !important;
+  font-weight: 700;
+  letter-spacing: 0.3px;
+  font-size: 12.5px;
+  background: linear-gradient(180deg, #1e3a8a, #1e40af);
+  text-shadow: 0 1px 1px rgba(0,0,0,0.25);
+  position: sticky; top: 0; z-index: 1;
+}
+
+tbody tr:hover { background: rgba(37,99,235,0.06); }
+tbody td { color: var(--text); }       /* 一般資料欄位（如日期、TAIEX）加深 */
+
+td.tag { font-weight: 700; }
+td.tag .pill { padding: 2px 8px; border-radius: 6px; font-size: 12px; font-weight: 700; }
+td.tag .pill.in   { background: rgba(200,30,30,0.15);  color: var(--buy);  }
+td.tag .pill.out  { background: rgba(10,125,44,0.15);  color: var(--sell); }
+td.tag .pill.flat { background: rgba(148,163,184,0.18); color: var(--text-dim); }
+
+.status { display: flex; align-items: center; gap: 8px; color: var(--text-dim); font-size: 13px; margin-top: 6px; min-height: 18px; }
+.spinner { width: 14px; height: 14px; border: 2px solid rgba(0,0,0,0.15); border-top-color: var(--accent); border-radius: 50%; animation: spin .8s linear infinite; display: none; }
+.loading .spinner { display: inline-block; }
+@keyframes spin { to { transform: rotate(360deg); } }
+
+.help dt { color: var(--accent); font-weight: 700; margin-top: 10px; font-size: 13.5px; }
+.help dd { margin: 4px 0 0 0; color: var(--text-dim); font-size: 13px; line-height: 1.6; }
+.color-legend { display: flex; flex-wrap: wrap; gap: 12px; margin-top: 10px; font-size: 12.5px; }
+.color-legend span { display: inline-flex; align-items: center; gap: 6px; }
+.color-legend i { width: 12px; height: 12px; border-radius: 3px; display: inline-block; }
+
+footer.app-footer { text-align: center; color: var(--text-dim); font-size: 12px; margin-top: 22px; padding-top: 12px; border-top: 1px solid var(--card-border); }
+
+@media (max-width: 640px) {
+  .container { padding: 12px 10px 36px; }
+  .panel, .controls, .stat-card { padding: 12px; }
+  th, td { padding: 6px 8px; font-size: 12px; }
+  .chart-wrap { height: 240px; }
+  table { min-width: 640px; }
+  /* 手機：按鈕回到下方一行 */
+  .actions { margin-left: 0; width: 100%; }
+}
 </style>
 </head>
 <body>
@@ -200,38 +232,31 @@
   </header>
 
   <section class="controls" aria-label="查詢條件">
-    <div class="field">
-      <label for="startDate">起始日期</label>
-      <input type="date" id="startDate" />
-    </div>
-    <div class="field">
-      <label for="endDate">結束日期</label>
-      <input type="date" id="endDate" />
-    </div>
-    <div class="field">
-      <label for="rangePreset">快速區間</label>
-      <select id="rangePreset">
-        <option value="30">近 30 天</option>
-        <option value="60" selected>近 60 天</option>
-        <option value="90">近 3 個月</option>
-        <option value="180">近 6 個月</option>
-        <option value="365">近 1 年</option>
-        <option value="custom">自訂</option>
-      </select>
-    </div>
-    <div class="field">
-      <label for="taiexStockId">TAIEX 代表標的</label>
-      <select id="taiexStockId">
-        <option value="TAIEX" selected>大盤指數 (TAIEX)</option>
-        <option value="0050">元大台灣50 (0050)</option>
-      </select>
-    </div>
-    <div class="actions">
-      <button id="btnFetch"  class="btn btn-primary">查詢</button>
-      <button id="btnCSV"    class="btn btn-secondary" disabled>匯出 CSV</button>
-      <button id="btnExcel"  class="btn btn-secondary" disabled>匯出 Excel</button>
-    </div>
-  </section>
+  <div class="field">
+    <label for="startDate">起始日期</label>
+    <input type="date" id="startDate" />
+  </div>
+  <div class="field">
+    <label for="endDate">結束日期</label>
+    <input type="date" id="endDate" />
+  </div>
+  <div class="field">
+    <label for="rangePreset">快速區間</label>
+    <select id="rangePreset">
+      <option value="30">近 30 天</option>
+      <option value="60" selected>近 60 天</option>
+      <option value="90">近 3 個月</option>
+      <option value="180">近 6 個月</option>
+      <option value="365">近 1 年</option>
+      <option value="custom">自訂</option>
+    </select>
+  </div>
+  <div class="actions">
+    <button id="btnFetch" class="btn btn-primary">查詢</button>
+    <button id="btnCSV" class="btn btn-secondary" disabled>匯出 CSV</button>
+    <button id="btnExcel" class="btn btn-secondary" disabled>匯出 Excel</button>
+  </div>
+</section>
 
   <div class="info-bar">
     <span id="dataSource">資料來源：尚未載入</span>
@@ -460,7 +485,7 @@ async function fetchData() {
   btnFetch.disabled = true; btnCSV.disabled = true; btnExcel.disabled = true;
 
   try {
-    const taiexId = $("taiexStockId").value;
+   const taiexId = "TAIEX";
     const [fx, fini, taiex] = await Promise.all([
       fetchFinMind("TaiwanExchangeRate", { data_id: "USD", start_date: start, end_date: end }),
       fetchFinMind("TaiwanStockInstitutionalInvestorsBuySell", { start_date: start, end_date: end }),

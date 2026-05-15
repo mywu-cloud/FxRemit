@@ -37,10 +37,28 @@ html, body {
   -webkit-font-smoothing: antialiased;
 }
 
-/* 桌機（≥1024px）字級最小 13pt（≈17.3px）；平板與手機保持原樣 */
+/* 桌機（≥1024px）：字級下限拉到 13px；原本 ≥13px 的維持不變。平板與手機保持原樣。 */
 @media (min-width: 1024px) {
-  body, p, span, div, label, input, select, button, td, th { font-size: 13pt; }
-  table, table th, table td { font-size: 13pt; }
+  html { font-size: 16px; }                 /* 維持瀏覽器預設基準 */
+  body { font-size: 14px; }                 /* 基礎內文（原 sans-serif 預設） */
+
+  /* 把原本小於 13px 的細節文字統一拉到 13px */
+  .brand p,
+  .badge,
+  .info-bar,
+  .stat-card .label,
+  .stat-card .sub,
+  .help dd,
+  .color-legend,
+  footer.app-footer,
+  .status,
+  table,
+  th, td {
+    font-size: 13px;
+  }
+
+  /* 表頭字稍小但維持下限 */
+  thead th { font-size: 13px; }
 }
 
 .container { max-width: 1280px; margin: 0 auto; padding: 22px 18px 60px; }

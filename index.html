@@ -849,7 +849,7 @@ function exportCSV() {
   const lines = [headers.join(",")];
   for (const r of rows) lines.push(headers.map(h => csvEscape(r[h])).join(","));
   const blob = new Blob(["﻿" + lines.join("\n")], { type: "text/csv;charset=utf-8;" });
-  download(blob, "FxFlowTracker_" + $("startDate").value + "_" + $("endDate").value + ".csv");
+  download(blob, "FiniFlowTracker_" + $("startDate").value + "_" + $("endDate").value + ".csv");
 }
 function csvEscape(v) {
   if (v == null) return "";
@@ -874,7 +874,7 @@ function exportExcel() {
     const ws2 = XLSX.utils.json_to_sheet(monthlyRows);
     XLSX.utils.book_append_sheet(wb, ws2, "月份彙總");
   }
-  XLSX.writeFile(wb, "FxFlowTracker_" + $("startDate").value + "_" + $("endDate").value + ".xlsx");
+  XLSX.writeFile(wb, "FiniFlowTracker_" + $("startDate").value + "_" + $("endDate").value + ".xlsx");
 }
 function download(blob, filename) {
   const url = URL.createObjectURL(blob);

@@ -246,6 +246,8 @@ header.app-header { padding: 10px 16px; margin-bottom: 10px; }
 .stat-card .label { font-size: 11.5px; margin-bottom: 2px; }
 .stat-card .value { font-size: clamp(15px, 2.2vw, 18px); }
 .stat-card .sub { font-size: 11px; margin-top: 2px; }
+.header-status { display: inline-flex; align-items: center; gap: 6px; font-size: 12.5px; color: var(--text-dim); margin-right: auto; padding-left: 14px; min-height: 18px; flex: 1 1 auto; }
+.header-status .spinner { width: 12px; height: 12px; }
 </style>
 </head>
 <body>
@@ -256,7 +258,7 @@ header.app-header { padding: 10px 16px; margin-bottom: 10px; }
       <h1>FINI Flow Tracker</h1>
       <p>Foreign Capital Inward Outward Remittance ｜ 台灣外資資金匯入匯出追蹤系統</p>
     </div>
-    <span class="badge"><span class="dot"></span> USD/TWD · FINI · TAIEX</span>
+    <div class="header-status" id="status"><span class="spinner"></span><span id="statusText">請選擇日期區間後點擊「查詢」</span></div><span class="badge"><span class="dot"></span> USD/TWD · FINI · TAIEX</span>
   </header>
 
   <section class="controls" aria-label="查詢條件">
@@ -285,11 +287,6 @@ header.app-header { padding: 10px 16px; margin-bottom: 10px; }
     <button id="btnExcel" class="btn btn-secondary" disabled>匯出 Excel</button>
   </div>
 </section>
-
-  <div class="status" id="status">
-    <span class="spinner"></span>
-    <span id="statusText">請選擇日期區間後點擊「查詢」</span>
-  </div>
 
   <nav class="tabs" role="tablist">
     <button class="tab-btn active" data-tab="daily">每日明細</button>

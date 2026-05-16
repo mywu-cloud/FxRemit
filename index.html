@@ -276,11 +276,6 @@ footer.app-footer { text-align: center; color: var(--text-dim); font-size: 12px;
   </div>
 </section>
 
-  <div class="info-bar">
-    <span id="dataSource">資料來源：尚未載入</span>
-    <span class="auto">⏰ <span id="nextAutoUpdate">排程中…</span></span>
-  </div>
-
   <div class="status" id="status">
     <span class="spinner"></span>
     <span id="statusText">請選擇日期區間後點擊「查詢」</span>
@@ -513,13 +508,13 @@ async function fetchData() {
     merged = mergeData(fx, fini, taiex);
     if (merged.length === 0) {
       renderEmpty();
-      $("dataSource").textContent = "資料來源：無資料";
+      ($("dataSource")||{}).textContent = "資料來源：無資料";
       setStatus("該區間查無資料（可能為連假或尚未公告）。");
       return;
     }
     renderAll();
     btnCSV.disabled = false; btnExcel.disabled = false;
-    $("dataSource").textContent = "資料來源：TWSE BFI82U（外資）＋ FinMind（匯率／TAIEX）";
+    ($("dataSource")||{}).textContent = "資料來源：TWSE BFI82U（外資）＋ FinMind（匯率／TAIEX）";
     setStatus("成功載入 " + merged.length + " 筆每日資料（" + start + " ~ " + end + "）");
   } catch (e) {
     console.error(e);
@@ -908,7 +903,7 @@ function scheduleNextAutoUpdate() {
   if (autoUpdateTimer) clearTimeout(autoUpdateTimer);
   const { delay, nextTpe } = msUntilNextRun();
   const display = (nextTpe.getMonth()+1) + "/" + nextTpe.getDate() + " " + String(nextTpe.getHours()).padStart(2,"0") + ":00";
-  $("nextAutoUpdate").textContent = "下次自動更新：" + display + "（台灣時間）";
+  ($("nextAutoUpdate")||{}).textContent = "下次自動更新：" + display + "（台灣時間）";
   autoUpdateTimer = setTimeout(async () => {
     const tag = String(nextTpe.getHours()).padStart(2,"0") + ":00";
     setStatus("⏰ 自動更新中…（台灣時間 " + tag + "）", true);

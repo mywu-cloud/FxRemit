@@ -5,7 +5,7 @@
 // - TaiwanStockPrice → FinMind（免費）
 // - TaiwanStockInstitutionalInvestorsBuySell
 // ① 若有 FINMIND_TOKEN env，優先使用 FinMind API（支援長區間）
-// ② 否則嘗試 TWSE BFI82U 即時抓取（官方、免費，適合 ≤60天）
+// ② 否則使用 TWSE BFI82U 月份批次抓取（月份 API，大幅減少請求數）
 // ③ TWSE 全失敗 / 空 → fallback 讀 /data/foreign_flow.json
 // 輸出格式偽裝成 FinMind: { msg, status, data:[{date,name,buy,sell}, ...] }
 // -------------------------------------------------------------
@@ -22,10 +22,6 @@ const ALLOWED_DATASETS = new Set([
 // TWSE 中文欄位名（依官方回傳 row[0]）
 const TW_FOREIGN_MAIN = "外資及陸資(不含外資自營商)";
 const TW_FOREIGN_SELF = "外資自營商";
-
-// 抓取參數
-const TWSE_CONCURRENCY = 4; // 同時打 TWSE 的併發數
-const TWSE_MAX_DAYS = 400;  // 防呆，單次查詢上限
 
 // ============================================================
 
@@ -62,7 +58,6 @@ export async function onRequestGet({ request, env }) {
         if (fmRes.ok) {
           const fmJson = await fmRes.json();
           if (Array.isArray(fmJson?.data) && fmJson.data.length > 0) {
-            // 轉換成相同格式回傳
             const data = fmJson.data
               .filter(r => r.name === "Foreign_Investor" || r.name === "Foreign_Dealer_Self")
               .map(r => ({
@@ -82,18 +77,31 @@ export async function onRequestGet({ request, env }) {
       }
     }
 
-    // ② 無 token 或 FinMind 失敗，嘗試 TWSE BFI82U
+    // ② 無 token 或 FinMind 失敗：使用 TWSE BFI82U 月份批次抓取
+    // 月份 API 每次抓一整月，大幅減少 HTTP 請求數（90天 = 3個月 = 3次請求）
     let twseRows = [];
     let twseErr  = null;
     try {
-      twseRows = await fetchTwseRange(start, end);
+      twseRows = await fetchTwseByMonth(start, end);
     } catch (err) {
       twseErr = err;
-      console.error("TWSE fetch error:", err && err.message);
+      console.error("TWSE monthly fetch error:", err && err.message);
     }
+
+    // 若月份 API 失敗，fallback 改用每日 API
+    if (twseRows.length === 0) {
+      try {
+        twseRows = await fetchTwseByDay(start, end);
+      } catch (err) {
+        console.error("TWSE daily fetch fallback error:", err && err.message);
+      }
+    }
+
     if (twseRows.length > 0) {
+      // 過濾出指定日期範圍
+      const filtered = twseRows.filter(r => r.date >= start && r.date <= end);
       return jsonResponse(
-        { msg: "success", status: 200, source: "twse", data: twseRows },
+        { msg: "success", status: 200, source: "twse", data: filtered },
         200, 300
       );
     }
@@ -163,9 +171,80 @@ export function onRequestOptions() {
   });
 }
 
-// ===================== TWSE helpers =====================
+// ===================== TWSE 月份批次抓取 =====================
+// 使用 type=month 一次取一整月，大幅減少 HTTP 請求數
 
-async function fetchTwseRange(startISO, endISO) {
+async function fetchTwseByMonth(startISO, endISO) {
+  const months = enumerateMonths(startISO, endISO);
+  const out = [];
+
+  // 並行抓取所有月份
+  const results = await Promise.all(
+    months.map(ym => fetchTwseOneMonth(ym).catch(err => {
+      console.error(`TWSE month ${ym} failed:`, err && err.message);
+      return [];
+    }))
+  );
+  for (const arr of results) if (arr && arr.length) out.push(...arr);
+  out.sort((a, b) => a.date.localeCompare(b.date));
+  return out;
+}
+
+async function fetchTwseOneMonth(yyyymm) {
+  // TWSE month API: date=YYYYMM01
+  const dateStr = yyyymm.replace("-", "") + "01";
+  const u = `${TWSE_BFI82U}?date=${dateStr}&type=month&response=json`;
+  const res = await fetch(u, {
+    headers: { "Accept": "application/json", "User-Agent": "FxFlowTracker/1.0" },
+    cf: { cacheTtl: 86400, cacheEverything: true }
+  });
+  if (!res.ok) return [];
+  let j;
+  try { j = await res.json(); } catch { return []; }
+  if (j.stat !== "OK" || !Array.isArray(j.data)) return [];
+
+  const rows = [];
+  for (const dayRow of j.data) {
+    // dayRow[0] = 日期 (民國年/月/日 or YYYY/MM/DD)
+    // dayRow[1..] = 各機構資料（依 j.fields 順序）
+    const dateStr2 = parseTwseDate(dayRow[0]);
+    if (!dateStr2) continue;
+
+    // 找出外資欄位 index（依 j.fields）
+    const fields = j.fields || [];
+    const fmIdx = fields.indexOf(TW_FOREIGN_MAIN);
+    const fsIdx = fields.indexOf(TW_FOREIGN_SELF);
+
+    if (fmIdx < 0 && fsIdx < 0) {
+      // fields 不含標準名稱，使用已知固定位置 fallback
+      // BFI82U month 格式：fields[0]=日期, 之後依機構排列
+      // 嘗試從 daily 格式解析
+      break;
+    }
+
+    const getCols = (rowData, idx) => {
+      if (idx < 0 || idx >= rowData.length) return { buy: 0, sell: 0 };
+      // 月份 API 每機構佔2欄：買進、賣出
+      const buyStr = rowData[idx];
+      const sellStr = rowData[idx + 1];
+      return { buy: parseTwseNum(buyStr), sell: parseTwseNum(sellStr) };
+    };
+
+    const fm = getCols(dayRow, fmIdx);
+    const fs = getCols(dayRow, fsIdx);
+
+    rows.push({ date: dateStr2, name: "Foreign_Investor",    buy: fm.buy, sell: fm.sell });
+    rows.push({ date: dateStr2, name: "Foreign_Dealer_Self", buy: fs.buy, sell: fs.sell });
+  }
+  return rows;
+}
+
+// ===================== TWSE 每日抓取（fallback）=====================
+
+const TWSE_CONCURRENCY = 4;
+const TWSE_MAX_DAYS = 400;
+
+async function fetchTwseByDay(startISO, endISO) {
   const days = enumerateDates(startISO, endISO);
   const out  = [];
   for (let i = 0; i < days.length; i += TWSE_CONCURRENCY) {
@@ -183,7 +262,6 @@ async function fetchTwseRange(startISO, endISO) {
 }
 
 async function fetchTwseOneDay(isoDate) {
-  // 週末直接跳過，省 HTTP
   const d   = new Date(isoDate + "T00:00:00Z");
   const dow = d.getUTCDay();
   if (dow === 0 || dow === 6) return [];
@@ -215,10 +293,21 @@ async function fetchTwseOneDay(isoDate) {
   ];
 }
 
-function parseTwseNum(s) {
-  if (s == null) return 0;
-  const n = Number(String(s).replace(/,/g, "").trim());
-  return Number.isFinite(n) ? n : 0;
+// ===================== utils =====================
+
+function enumerateMonths(startISO, endISO) {
+  const months = [];
+  const s = new Date(startISO + "T00:00:00Z");
+  const e = new Date(endISO   + "T00:00:00Z");
+  let cur = new Date(s.getUTCFullYear(), s.getUTCMonth(), 1);
+  const end = new Date(e.getUTCFullYear(), e.getUTCMonth(), 1);
+  while (cur <= end) {
+    const y = cur.getFullYear();
+    const m = String(cur.getMonth() + 1).padStart(2, "0");
+    months.push(`${y}-${m}`);
+    cur.setMonth(cur.getMonth() + 1);
+  }
+  return months;
 }
 
 function enumerateDates(startISO, endISO) {
@@ -234,7 +323,27 @@ function enumerateDates(startISO, endISO) {
   return out;
 }
 
-// ===================== misc =====================
+function parseTwseDate(s) {
+  // 民國年/月/日 → YYYY-MM-DD 或 YYYY/MM/DD → YYYY-MM-DD
+  if (!s) return null;
+  s = String(s).trim();
+  // 西元年格式
+  const m1 = s.match(/^(\d{4})\/?(\d{2})\/?(\d{2})$/);
+  if (m1) return `${m1[1]}-${m1[2]}-${m1[3]}`;
+  // 民國年格式 YYY/MM/DD
+  const m2 = s.match(/^(\d{2,3})\/?(\d{2})\/?(\d{2})$/);
+  if (m2) {
+    const year = parseInt(m2[1]) + 1911;
+    return `${year}-${m2[2]}-${m2[3]}`;
+  }
+  return null;
+}
+
+function parseTwseNum(s) {
+  if (s == null) return 0;
+  const n = Number(String(s).replace(/,/g, "").trim());
+  return Number.isFinite(n) ? n : 0;
+}
 
 function jsonResponse(obj, status, cacheSec) {
   return new Response(JSON.stringify(obj), {

@@ -274,10 +274,10 @@ header.app-header { padding: 10px 16px; margin-bottom: 10px; }
     <label for="rangePreset">快速區間</label>
     <select id="rangePreset">
       <option value="30">近 30 天</option>
-      <option value="60" selected>近 60 天</option>
-      <option value="90">近 3 個月</option>
+      <option value="60">近 60 天</option>
+      <option value="90" selected>近 3 個月</option>
       <option value="180">近 6 個月</option>
-      <option value="365">近 1 年</option>
+      <option value="365">近 12 個月</option>
       <option value="custom">自訂</option>
     </select>
   </div>
@@ -452,7 +452,7 @@ document.addEventListener("DOMContentLoaded", async () => {
 
 function initDateInputs() {
   const today = new Date();
-  const past = new Date(); past.setDate(today.getDate() - 60);
+  const past = new Date(); past.setDate(today.getDate() - 90);
   $("endDate").value = toISO(today);
   $("startDate").value = toISO(past);
 }

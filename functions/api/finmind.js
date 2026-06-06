@@ -1,16 +1,17 @@
 // Cloudflare Pages Function: /api/finmind
 // -------------------------------------------------------------
 // 路由策略：
-//   - TaiwanExchangeRate         → FinMind（免費）
-//   - TaiwanStockPrice           → FinMind（免費）
-//   - TaiwanStockInstitutionalInvestorsBuySell
-//        ① 嘗試 TWSE BFI82U 即時抓取（官方、免費、不限 60 天）
-//        ② TWSE 全失敗 / 空 → fallback 讀 /data/foreign_flow.json
-//        輸出格式偽裝成 FinMind: { msg, status, data:[{date,name,buy,sell}, ...] }
+// - TaiwanExchangeRate → FinMind（免費）
+// - TaiwanStockPrice → FinMind（免費）
+// - TaiwanStockInstitutionalInvestorsBuySell
+// ① 若有 FINMIND_TOKEN env，優先使用 FinMind API（支援長區間）
+// ② 否則嘗試 TWSE BFI82U 即時抓取（官方、免費，適合 ≤60天）
+// ③ TWSE 全失敗 / 空 → fallback 讀 /data/foreign_flow.json
+// 輸出格式偽裝成 FinMind: { msg, status, data:[{date,name,buy,sell}, ...] }
 // -------------------------------------------------------------
 
 const FINMIND_UPSTREAM = "https://api.finmindtrade.com/api/v4/data";
-const TWSE_BFI82U      = "https://www.twse.com.tw/rwd/zh/fund/BFI82U";
+const TWSE_BFI82U = "https://www.twse.com.tw/rwd/zh/fund/BFI82U";
 
 const ALLOWED_DATASETS = new Set([
   "TaiwanExchangeRate",
@@ -23,13 +24,13 @@ const TW_FOREIGN_MAIN = "外資及陸資(不含外資自營商)";
 const TW_FOREIGN_SELF = "外資自營商";
 
 // 抓取參數
-const TWSE_CONCURRENCY = 4;     // 同時打 TWSE 的併發數
-const TWSE_MAX_DAYS    = 400;   // 防呆，單次查詢上限
+const TWSE_CONCURRENCY = 4; // 同時打 TWSE 的併發數
+const TWSE_MAX_DAYS = 400;  // 防呆，單次查詢上限
 
 // ============================================================
 
 export async function onRequestGet({ request, env }) {
-  const url    = new URL(request.url);
+  const url = new URL(request.url);
   const params = new URLSearchParams(url.search);
   const dataset = params.get("dataset");
 
@@ -37,7 +38,7 @@ export async function onRequestGet({ request, env }) {
     return jsonResponse({ status: 400, msg: "dataset not allowed" }, 400);
   }
 
-  // ===== 三大法人：TWSE 主抓，快取 fallback =====
+  // ===== 三大法人：依 token 決定資料來源 =====
   if (dataset === "TaiwanStockInstitutionalInvestorsBuySell") {
     const start = params.get("start_date");
     const end   = params.get("end_date");
@@ -45,7 +46,43 @@ export async function onRequestGet({ request, env }) {
       return jsonResponse({ status: 400, msg: "missing start_date / end_date" }, 400);
     }
 
-    // ① 先試 TWSE
+    // ① 若有 FinMind token，優先使用 FinMind API（無行數限制，支援長區間）
+    if (env.FINMIND_TOKEN) {
+      try {
+        const fmParams = new URLSearchParams({
+          dataset: "TaiwanStockInstitutionalInvestorsBuySell",
+          start_date: start,
+          end_date: end,
+          token: env.FINMIND_TOKEN
+        });
+        const fmRes = await fetch(FINMIND_UPSTREAM + "?" + fmParams.toString(), {
+          headers: { "Accept": "application/json" },
+          cf: { cacheTtl: 300, cacheEverything: true }
+        });
+        if (fmRes.ok) {
+          const fmJson = await fmRes.json();
+          if (Array.isArray(fmJson?.data) && fmJson.data.length > 0) {
+            // 轉換成相同格式回傳
+            const data = fmJson.data
+              .filter(r => r.name === "Foreign_Investor" || r.name === "Foreign_Dealer_Self")
+              .map(r => ({
+                date: r.date,
+                name: r.name,
+                buy: Number(r.buy) || 0,
+                sell: Number(r.sell) || 0
+              }));
+            return jsonResponse(
+              { msg: "success", status: 200, source: "finmind", data },
+              200, 300
+            );
+          }
+        }
+      } catch (err) {
+        console.error("FinMind FINI fetch error:", err && err.message);
+      }
+    }
+
+    // ② 無 token 或 FinMind 失敗，嘗試 TWSE BFI82U
     let twseRows = [];
     let twseErr  = null;
     try {
@@ -61,7 +98,7 @@ export async function onRequestGet({ request, env }) {
       );
     }
 
-    // ② Fallback：讀靜態快取 /data/foreign_flow.json
+    // ③ Fallback：讀靜態快取 /data/foreign_flow.json
     try {
       const origin = url.origin;
       const r = await fetch(`${origin}/data/foreign_flow.json`, {
@@ -83,8 +120,7 @@ export async function onRequestGet({ request, env }) {
 
     return jsonResponse({
       status: 502,
-      msg: "twse fetch returned no data and cache unavailable" +
-           (twseErr ? `: ${twseErr.message}` : "")
+      msg: "all data sources failed" + (twseErr ? `: ${twseErr.message}` : "")
     }, 502);
   }
 
@@ -133,7 +169,7 @@ async function fetchTwseRange(startISO, endISO) {
   const days = enumerateDates(startISO, endISO);
   const out  = [];
   for (let i = 0; i < days.length; i += TWSE_CONCURRENCY) {
-    const slice = days.slice(i, i + TWSE_CONCURRENCY);
+    const slice   = days.slice(i, i + TWSE_CONCURRENCY);
     const results = await Promise.all(
       slice.map(d => fetchTwseOneDay(d).catch(err => {
         console.error(`TWSE ${d} failed:`, err && err.message);
@@ -156,7 +192,7 @@ async function fetchTwseOneDay(isoDate) {
   const u = `${TWSE_BFI82U}?dayDate=${yyyymmdd}&type=day&response=json`;
   const res = await fetch(u, {
     headers: { "Accept": "application/json", "User-Agent": "FxFlowTracker/1.0" },
-    cf: { cacheTtl: 86400, cacheEverything: true } // 當日值不變，長快取
+    cf: { cacheTtl: 86400, cacheEverything: true }
   });
   if (!res.ok) return [];
   let j;
@@ -187,8 +223,8 @@ function parseTwseNum(s) {
 
 function enumerateDates(startISO, endISO) {
   const out = [];
-  const s = new Date(startISO + "T00:00:00Z");
-  const e = new Date(endISO   + "T00:00:00Z");
+  const s   = new Date(startISO + "T00:00:00Z");
+  const e   = new Date(endISO   + "T00:00:00Z");
   if (isNaN(s) || isNaN(e) || s > e) return out;
   let cnt = 0;
   for (let d = new Date(s); d <= e && cnt < TWSE_MAX_DAYS;
@@ -204,7 +240,7 @@ function jsonResponse(obj, status, cacheSec) {
   return new Response(JSON.stringify(obj), {
     status: status || 200,
     headers: {
-      "Content-Type": "application/json; charset=utf-8",
+      "Content-Type":              "application/json; charset=utf-8",
       "Access-Control-Allow-Origin": "*",
       "Cache-Control": cacheSec ? `public, max-age=${cacheSec}` : "no-store"
     }

@@ -532,6 +532,40 @@ async function fetchData() {
 }
 
 async function fetchFinMind(dataset, opts) {
+  // 對三大法人資料採月份分批抓取，避免後端超時（TWSE BFI82U 每次上限約 45 交易日）
+  if (dataset === "TaiwanStockInstitutionalInvestorsBuySell") {
+    return fetchFinMindInChunks(dataset, opts);
+  }
+  return fetchFinMindOnce(dataset, opts);
+}
+
+async function fetchFinMindInChunks(dataset, opts) {
+  const { start_date: start, end_date: end } = opts;
+  const months = enumerateMonths(start, end);
+  const results = await Promise.all(months.map(async ([mStart, mEnd]) => {
+    const clampedStart = mStart < start ? start : mStart;
+    const clampedEnd   = mEnd   > end   ? end   : mEnd;
+    return fetchFinMindOnce(dataset, { ...opts, start_date: clampedStart, end_date: clampedEnd });
+  }));
+  return results.flat();
+}
+
+function enumerateMonths(startISO, endISO) {
+  const chunks = [];
+  let cur = new Date(startISO + "T00:00:00Z");
+  const endDate = new Date(endISO + "T00:00:00Z");
+  while (cur <= endDate) {
+    const y = cur.getUTCFullYear();
+    const m = cur.getUTCMonth();
+    const chunkStart = toISO(new Date(Date.UTC(y, m, 1)));
+    const chunkEnd   = toISO(new Date(Date.UTC(y, m + 1, 0)));
+    chunks.push([chunkStart, chunkEnd]);
+    cur = new Date(Date.UTC(y, m + 1, 1));
+  }
+  return chunks;
+}
+
+async function fetchFinMindOnce(dataset, opts) {
   const params = new URLSearchParams({ dataset, ...opts });
   if (FINMIND.token) params.append("token", FINMIND.token);
   const res = await fetch(FINMIND.endpoint + "?" + params);

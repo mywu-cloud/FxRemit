@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-<title>FINI Flow Tracker｜台灣外資資金匯入匯出追蹤系統</title>
+<title>FINI Flow Tracker｜台股外資買賣超、加權指數與匯率走勢</title>
 <meta name="description" content="Foreign Capital Inward Outward Remittance — USD/TWD 匯率 + 外資資金匯入匯出追蹤" />
 <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
@@ -256,9 +256,9 @@ header.app-header { padding: 10px 16px; margin-bottom: 10px; }
   <header class="app-header">
     <div class="brand">
       <h1>FINI Flow Tracker</h1>
-      <p>Foreign Capital Inward Outward Remittance ｜ 台灣外資資金匯入匯出追蹤系統</p>
+      <p>台股外資買賣超、加權指數與匯率走勢</p>
     </div>
-    <div class="header-status" id="status"><span class="spinner"></span><span id="statusText">請選擇日期區間後點擊「查詢」</span></div><span class="badge"><span class="dot"></span> USD/TWD · FINI · TAIEX</span>
+    <div class="header-status" id="status"><span class="spinner"></span><span id="statusText">請選擇日期區間後點擊「查詢」</span></div><span class="badge"><span class="dot"></span> USD/TWD · FINI · 加權指數</span>
   </header>
 
   <section class="controls" aria-label="查詢條件">
@@ -314,14 +314,14 @@ header.app-header { padding: 10px 16px; margin-bottom: 10px; }
         <div class="sub" id="statFxDate"></div>
       </div>
       <div class="stat-card">
-        <div class="label">最新 TAIEX</div>
+        <div class="label">最新加權指數</div>
         <div class="value" id="statLatestTaiex">—</div>
         <div class="sub" id="statTaiexDate"></div>
       </div>
     </section>
 
     <section class="panel">
-      <h2>外資資金匯入匯出每日明細</h2>
+      <h2>外資買賣超每日明細</h2>
       <div class="table-wrap">
         <table id="dailyTable">
           <thead>
@@ -332,8 +332,8 @@ header.app-header { padding: 10px 16px; margin-bottom: 10px; }
               <th>淨額 (M USD)</th>
               <th>累計淨額</th>
               <th>USD/TWD</th>
-              <th>TWD 淨流 (億)</th>
-              <th>TAIEX</th>
+              <th>TWD 買賣超 (億)</th>
+              <th>加權指數</th>
               <th>狀態</th>
             </tr>
           </thead>
@@ -356,8 +356,8 @@ header.app-header { padding: 10px 16px; margin-bottom: 10px; }
               <th>賣出 (M USD)</th>
               <th>月淨額 (M USD)</th>
               <th>月均匯率</th>
-              <th>TWD 淨流 (億)</th>
-              <th>月底 TAIEX</th>
+              <th>TWD 買賣超 (億)</th>
+              <th>月底加權指數</th>
               <th>MoM %</th>
             </tr>
           </thead>
@@ -374,7 +374,7 @@ header.app-header { padding: 10px 16px; margin-bottom: 10px; }
       <div class="chart-wrap"><canvas id="fxChart"></canvas></div>
     </section>
     <section class="panel">
-      <h2>外資淨流量 vs TAIEX</h2>
+      <h2>外資淨流量 vs 加權指數</h2>
       <div class="chart-wrap"><canvas id="flowChart"></canvas></div>
     </section>
   </section>
@@ -387,12 +387,12 @@ header.app-header { padding: 10px 16px; margin-bottom: 10px; }
         <dt>日期</dt><dd>交易日（台股交易日）</dd>
         <dt>買入 (M USD)</dt><dd>外資當日買進金額換算百萬美元，來源：FinMind <code>TaiwanStockInstitutionalInvestorsBuySell</code>（Foreign_Investor / Foreign_Dealer_Self）</dd>
         <dt>賣出 (M USD)</dt><dd>外資當日賣出金額換算百萬美元，同上資料源</dd>
-        <dt>淨額 (M USD)</dt><dd>買入 − 賣出，正值代表資金匯入（買超）</dd>
+        <dt>淨額 (M USD)</dt><dd>買入 − 賣出，正值代表買超</dd>
         <dt>累計淨額</dt><dd>區間累計淨流量，用於判斷資金持續流入 / 流出趨勢</dd>
         <dt>USD/TWD</dt><dd>美元兌新台幣即期匯率，來源：FinMind <code>TaiwanExchangeRate</code>（spot 中價）</dd>
-        <dt>TWD 淨流 (億)</dt><dd>淨額換算為新台幣（億元）＝ 淨額(M USD) × 匯率 ÷ 100</dd>
-        <dt>TAIEX</dt><dd>大盤收盤指數，來源：FinMind <code>TaiwanStockPrice</code></dd>
-        <dt>狀態</dt><dd>匯入 (net &gt; 0) ／ 匯出 (net &lt; 0) ／ 持平 (net = 0)</dd>
+        <dt>TWD 買賣超 (億)</dt><dd>淨額換算為新台幣（億元）＝ 淨額(M USD) × 匯率 ÷ 100</dd>
+        <dt>加權指數</dt><dd>大盤收盤指數，來源：FinMind <code>TaiwanStockPrice</code></dd>
+        <dt>狀態</dt><dd>買超 (net &gt; 0) ／ 賣超 (net &lt; 0) ／ 持平 (net = 0)</dd>
       </dl>
 
 
@@ -493,7 +493,7 @@ async function fetchData() {
   if (!start || !end) { setStatus("請選擇起訖日期"); return; }
   if (start > end)    { setStatus("起始日期不可晚於結束日期"); return; }
 
-  setStatus("正在載入資料（匯率 / 外資 / TAIEX）…", true);
+  setStatus("正在載入資料（匯率 / 外資 / 加權指數）…", true);
   btnFetch.disabled = true; btnCSV.disabled = true; btnExcel.disabled = true;
 
   try {
@@ -513,7 +513,7 @@ async function fetchData() {
     }
     renderAll();
     btnCSV.disabled = false; btnExcel.disabled = false;
-    ($("dataSource")||{}).textContent = "資料來源：TWSE BFI82U（外資）＋ FinMind（匯率／TAIEX）";
+    ($("dataSource")||{}).textContent = "資料來源：TWSE BFI82U（外資）＋ FinMind（匯率／加權指數）";
     setStatus("成功載入 " + merged.length + " 筆每日資料（" + start + " ~ " + end + "）");
   } catch (e) {
     console.error(e);
@@ -712,7 +712,7 @@ function updateDailySortIndicators() {
   });
 }
 
-function statusLabel(n) { return n > 0 ? "匯入" : (n < 0 ? "匯出" : "持平"); }
+function statusLabel(n) { return n > 0 ? "買超" : (n < 0 ? "賣超" : "持平"); }
 function fmt(n, d=2) { return (n==null || !Number.isFinite(n)) ? "—" : n.toFixed(d); }
 function fmtSigned(n, d=2) {
   if (n==null || !Number.isFinite(n)) return "—";
@@ -728,8 +728,8 @@ function renderDailyTable() {
     const tr = document.createElement("tr");
     const sCls = signClass(r.net_musd);
     const tfCls = signClass(r.net_twd_yi);
-    const pill = r.net_musd > 0 ? '<span class="pill in">匯入</span>'
-              : r.net_musd < 0 ? '<span class="pill out">匯出</span>'
+    const pill = r.net_musd > 0 ? '<span class="pill in">買超</span>'
+              : r.net_musd < 0 ? '<span class="pill out">賣超</span>'
               : '<span class="pill flat">持平</span>';
     tr.innerHTML =
       '<td>' + r.date + '</td>' +
@@ -826,7 +826,7 @@ function renderCharts() {
         },
         {
           type: "line",
-          label: "TAIEX",
+          label: "加權指數",
           data: asc.map(r => r.taiex),
           borderColor: "#1f6feb", backgroundColor: "rgba(31,111,235,0.1)",
           tension: 0.25, pointRadius: 0, borderWidth: 2, yAxisID: "y1"
@@ -865,8 +865,8 @@ function buildExportRows() {
     "淨額 (M USD)": +r.net_musd.toFixed(2),
     "累計淨額 (M USD)": +r.cum_musd.toFixed(2),
     "USD/TWD": +r.fx.toFixed(4),
-    "TWD 淨流 (億)": +r.net_twd_yi.toFixed(2),
-    "TAIEX": r.taiex != null ? +r.taiex.toFixed(2) : "",
+    "TWD 買賣超 (億)": +r.net_twd_yi.toFixed(2),
+    "加權指數": r.taiex != null ? +r.taiex.toFixed(2) : "",
     "狀態": statusLabel(r.net_musd)
   }));
 }
@@ -894,8 +894,8 @@ function exportExcel() {
     const td = tr.querySelectorAll("td");
     return {
       "年月": td[0].innerText, "買入 (M USD)": td[1].innerText, "賣出 (M USD)": td[2].innerText,
-      "月淨額 (M USD)": td[3].innerText, "月均匯率": td[4].innerText, "TWD 淨流 (億)": td[5].innerText,
-      "月底 TAIEX": td[6].innerText, "MoM %": td[7].innerText
+      "月淨額 (M USD)": td[3].innerText, "月均匯率": td[4].innerText, "TWD 買賣超 (億)": td[5].innerText,
+      "月底加權指數": td[6].innerText, "MoM %": td[7].innerText
     };
   });
   if (monthlyRows.length) {

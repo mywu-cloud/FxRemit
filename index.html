@@ -3,6 +3,9 @@
 <head>
 <meta charset="UTF-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<script>(function(){try{var t=localStorage.getItem("fxremit-theme");if(t!=="light"&&t!=="dark"){t=matchMedia("(prefers-color-scheme: dark)").matches?"dark":"light"}document.documentElement.setAttribute("data-theme",t)}catch(e){}})();</script>
+<meta name="theme-color" content="#f5f7fa" media="(prefers-color-scheme: light)" />
+<meta name="theme-color" content="#0d1117" media="(prefers-color-scheme: dark)" />
 <title>FINI Flow Tracker｜台股外資買賣超、加權指數與匯率走勢</title>
 <meta name="description" content="Foreign Capital Inward Outward Remittance — USD/TWD 匯率 + 外資資金匯入匯出追蹤" />
 <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
@@ -23,6 +26,39 @@
   --cum:  #1448a8;          /* 藍 = 累計（加深） */
   --radius: 14px;
   --shadow: 0 4px 16px rgba(0,0,0,0.06);
+  --input-bg: #ffffff;
+  --row-border: #e2e8f0;
+  --row-hover: rgba(37,99,235,0.06);
+  --thead-a: #1e3a8a; --thead-b: #1e40af;
+  --spinner-track: rgba(0,0,0,0.15);
+  --ch-tick: #475569; --ch-grid: rgba(0,0,0,0.08); --ch-legend: #334155;
+  --ch-fx: #d97706; --ch-fx-fill: rgba(240,165,0,0.15);
+  --ch-taiex: #1f6feb; --ch-up: rgba(231,76,60,0.7); --ch-down: rgba(39,174,96,0.7);
+  color-scheme: light;
+}
+:root[data-theme="dark"] {
+  --bg-1: #0d1117;
+  --bg-2: #111827;
+  --card: #161b22;
+  --card-border: #30363d;
+  --text: #e6edf3;
+  --text-dim: #9aa6b5;
+  --accent: #58a6ff;
+  --accent-2: #388bfd;
+  --buy:  #ff6b6b;
+  --sell: #3fb950;
+  --fx:   #f0b429;
+  --cum:  #79b8ff;
+  --shadow: 0 4px 16px rgba(0,0,0,0.35);
+  --input-bg: #0d1117;
+  --row-border: #262c36;
+  --row-hover: rgba(88,166,255,0.08);
+  --thead-a: #1c2a4a; --thead-b: #1f3159;
+  --spinner-track: rgba(255,255,255,0.18);
+  --ch-tick: #9aa6b5; --ch-grid: rgba(255,255,255,0.08); --ch-legend: #c9d1d9;
+  --ch-fx: #f0b429; --ch-fx-fill: rgba(240,180,41,0.15);
+  --ch-taiex: #58a6ff; --ch-up: rgba(255,107,107,0.75); --ch-down: rgba(63,185,80,0.75);
+  color-scheme: dark;
 }
 * { box-sizing: border-box; }
 
@@ -35,6 +71,8 @@ html, body {
   color: var(--text);
   min-height: 100vh;
   -webkit-font-smoothing: antialiased;
+  -webkit-text-size-adjust: 100%;
+  transition: background-color .2s, color .2s;
 }
 
 /* 桌機（≥1024px）：字級下限拉到 13px；原本 ≥13px 的維持不變。平板與手機保持原樣。 */
@@ -122,7 +160,7 @@ header.app-header {
 .field input, .field select {
   width: 100%; padding: 9px 12px;
   border-radius: 10px; border: 1px solid var(--card-border);
-  background: #ffffff; color: var(--text);
+  background: var(--input-bg); color: var(--text);
   font-size: 14px; outline: none;
 }
 .field input:focus, .field select:focus {
@@ -142,7 +180,7 @@ header.app-header {
 .btn:active { transform: translateY(1px); }
 .btn:disabled { opacity: .55; cursor: not-allowed; }
 .btn-primary { background: linear-gradient(90deg, var(--accent), var(--accent-2)); color: white; }
-.btn-secondary { background: #ffffff; color: var(--text); border: 1px solid var(--card-border); }
+.btn-secondary { background: var(--input-bg); color: var(--text); border: 1px solid var(--card-border); }
 .btn-secondary:hover { filter: brightness(1.2); }
 
 .info-bar {
@@ -191,7 +229,7 @@ table {
   font-size: 13px; min-width: 680px;
   font-variant-numeric: tabular-nums;
 }
-th, td { padding: 8px 10px; text-align: right; border-bottom: 1px solid #e2e8f0; white-space: nowrap; }
+th, td { padding: 8px 10px; text-align: right; border-bottom: 1px solid var(--row-border); white-space: nowrap; }
 th:first-child, td:first-child { text-align: left; }
 
 /* 表頭：白字 + 加粗，與藍底高對比 */
@@ -200,12 +238,12 @@ thead th {
   font-weight: 700;
   letter-spacing: 0.3px;
   font-size: 12.5px;
-  background: linear-gradient(180deg, #1e3a8a, #1e40af);
+  background: linear-gradient(180deg, var(--thead-a), var(--thead-b));
   text-shadow: 0 1px 1px rgba(0,0,0,0.25);
   position: sticky; top: 0; z-index: 1;
 }
 
-tbody tr:hover { background: rgba(37,99,235,0.06); }
+tbody tr:hover { background: var(--row-hover); }
 tbody td { color: var(--text); }       /* 一般資料欄位（如日期、TAIEX）加深 */
 
 td.tag { font-weight: 700; }
@@ -215,7 +253,7 @@ td.tag .pill.out  { background: rgba(10,125,44,0.15);  color: var(--sell); }
 td.tag .pill.flat { background: rgba(148,163,184,0.18); color: var(--text-dim); }
 
 .status { display: flex; align-items: center; gap: 8px; color: var(--text-dim); font-size: 13px; margin-top: 6px; min-height: 18px; }
-.spinner { width: 14px; height: 14px; border: 2px solid rgba(0,0,0,0.15); border-top-color: var(--accent); border-radius: 50%; animation: spin .8s linear infinite; display: none; }
+.spinner { width: 14px; height: 14px; border: 2px solid var(--spinner-track); border-top-color: var(--accent); border-radius: 50%; animation: spin .8s linear infinite; display: none; }
 .loading .spinner { display: inline-block; }
 @keyframes spin { to { transform: rotate(360deg); } }
 
@@ -248,6 +286,56 @@ header.app-header { padding: 10px 16px; margin-bottom: 10px; }
 .stat-card .sub { font-size: 11px; margin-top: 2px; }
 .header-status { display: inline-flex; align-items: center; gap: 6px; font-size: 12.5px; color: var(--text-dim); margin-right: auto; padding-left: 14px; min-height: 18px; flex: 1 1 auto; }
 .header-status .spinner { width: 12px; height: 12px; }
+
+/* === 主題切換按鈕 === */
+.theme-btn {
+  flex: 0 0 auto; width: 36px; height: 36px; border-radius: 10px;
+  border: 1px solid var(--card-border); background: var(--input-bg); color: var(--text);
+  font-size: 17px; line-height: 1; cursor: pointer;
+  display: inline-flex; align-items: center; justify-content: center;
+  transition: filter .15s;
+}
+.theme-btn:hover { filter: brightness(0.95); }
+:root[data-theme="dark"] .theme-btn:hover { filter: brightness(1.25); }
+:root[data-theme="dark"] .badge { background: rgba(88,166,255,0.12); border-color: rgba(88,166,255,0.3); }
+:root[data-theme="dark"] .info-bar { background: rgba(88,166,255,0.08); border-color: rgba(88,166,255,0.25); }
+:root[data-theme="dark"] input[type="date"]::-webkit-calendar-picker-indicator { filter: invert(0.8); }
+code { background: var(--bg-2); padding: 1px 5px; border-radius: 4px; }
+
+/* === 分頁列：窄螢幕可左右滑動 === */
+.tabs { flex-wrap: nowrap; overflow-x: auto; scrollbar-width: none; -webkit-overflow-scrolling: touch; }
+.tabs::-webkit-scrollbar { display: none; }
+.tab-btn { flex: 0 0 auto; white-space: nowrap; }
+
+/* === 平板（641–1023px） === */
+@media (min-width: 641px) and (max-width: 1023px) {
+  .container { padding: 16px 14px 48px; }
+  .stats { grid-template-columns: repeat(2, 1fr); }
+  .controls .field { flex: 1 1 160px; }
+  .actions { margin-left: 0; width: 100%; }
+  .actions .btn { flex: 1 1 0; }
+  .chart-wrap { height: 280px; }
+}
+
+/* === 手機（≤640px） === */
+@media (max-width: 640px) {
+  header.app-header { gap: 8px; }
+  .brand { flex: 1 1 auto; min-width: 0; }
+  .header-status { order: 3; flex: 1 1 100%; padding-left: 0; margin-right: 0; }
+  .badge { display: none; }
+  .controls { gap: 10px; }
+  .controls .field { flex: 1 1 calc(50% - 5px); min-width: 0; }
+  .controls .field:nth-child(3) { flex-basis: 100%; }
+  .field input, .field select { font-size: 16px; padding: 8px 10px; }
+  .actions .btn { flex: 1 1 0; }
+  .stats { grid-template-columns: repeat(2, 1fr); }
+  .tab-btn { padding: 10px 12px; }
+  .table-wrap { max-height: 65vh; }
+  /* 日期欄固定在左側，其餘欄位左右滑動 */
+  th:first-child, td:first-child { position: sticky; left: 0; }
+  tbody td:first-child { background: var(--card); z-index: 1; box-shadow: 1px 0 0 var(--row-border); }
+  thead th:first-child { z-index: 3; }
+}
 </style>
 </head>
 <body>
@@ -258,7 +346,7 @@ header.app-header { padding: 10px 16px; margin-bottom: 10px; }
       <h1>FINI Flow Tracker</h1>
       <p>台股外資買賣超、加權指數與匯率走勢</p>
     </div>
-    <div class="header-status" id="status"><span class="spinner"></span><span id="statusText">請選擇日期區間後點擊「查詢」</span></div><span class="badge"><span class="dot"></span> USD/TWD · FINI · 加權指數</span>
+    <div class="header-status" id="status"><span class="spinner"></span><span id="statusText">請選擇日期區間後點擊「查詢」</span></div><span class="badge"><span class="dot"></span> USD/TWD · FINI · 加權指數</span><button class="theme-btn" id="themeBtn" type="button" aria-label="切換深色模式" title="切換深色模式">&#127769;</button>
   </header>
 
   <section class="controls" aria-label="查詢條件">
@@ -435,6 +523,7 @@ let autoUpdateTimer = null;
 
 document.addEventListener("DOMContentLoaded", async () => {
   $("year").textContent = new Date().getFullYear();
+  initTheme();
   initDateInputs();
   bindEvents();
   setupDailySort();
@@ -804,7 +893,7 @@ function renderCharts() {
       datasets: [{
         label: "USD/TWD (spot mid)",
         data: asc.map(r => r.fx),
-        borderColor: "#f0a500", backgroundColor: "rgba(240,165,0,0.15)",
+        borderColor: cv("--ch-fx"), backgroundColor: cv("--ch-fx-fill"),
         tension: 0.25, pointRadius: 0, borderWidth: 2, fill: true
       }]
     },
@@ -821,14 +910,14 @@ function renderCharts() {
           type: "bar",
           label: "外資淨額 (M USD)",
           data: asc.map(r => r.net_musd),
-          backgroundColor: asc.map(r => r.net_musd >= 0 ? "rgba(231,76,60,0.7)" : "rgba(39,174,96,0.7)"),
+          backgroundColor: asc.map(r => r.net_musd >= 0 ? cv("--ch-up") : cv("--ch-down")),
           yAxisID: "y"
         },
         {
           type: "line",
           label: "加權指數",
           data: asc.map(r => r.taiex),
-          borderColor: "#1f6feb", backgroundColor: "rgba(31,111,235,0.1)",
+          borderColor: cv("--ch-taiex"), backgroundColor: "rgba(31,111,235,0.1)",
           tension: 0.25, pointRadius: 0, borderWidth: 2, yAxisID: "y1"
         }
       ]
@@ -836,22 +925,53 @@ function renderCharts() {
     options: {
       ...chartOpts(),
       scales: {
-        x: { ticks: { color: "#475569", maxRotation: 0, autoSkip: true }, grid: { color: "rgba(0,0,0,0.08)" } },
-        y:  { position: "left",  ticks: { color: "#475569" }, grid: { color: "rgba(0,0,0,0.08)" } },
-        y1: { position: "right", ticks: { color: "#475569" }, grid: { drawOnChartArea: false } }
+        x: { ticks: { color: cv("--ch-tick"), maxRotation: 0, autoSkip: true }, grid: { color: cv("--ch-grid") } },
+        y:  { position: "left",  ticks: { color: cv("--ch-tick") }, grid: { color: cv("--ch-grid") } },
+        y1: { position: "right", ticks: { color: cv("--ch-tick") }, grid: { drawOnChartArea: false } }
       }
     }
   });
+}
+
+function cv(name) { return getComputedStyle(document.documentElement).getPropertyValue(name).trim(); }
+
+/* ====== 淺色 / 深色主題 ====== */
+const THEME_KEY = "fxremit-theme";
+function syncThemeBtn() {
+  const dark = document.documentElement.getAttribute("data-theme") === "dark";
+  const b = $("themeBtn"); if (!b) return;
+  b.innerHTML = dark ? "&#9728;&#65039;" : "&#127769;";
+  const t = dark ? "切換淺色模式" : "切換深色模式";
+  b.title = t; b.setAttribute("aria-label", t);
+}
+function applyTheme(t, persist) {
+  document.documentElement.setAttribute("data-theme", t);
+  if (persist) { try { localStorage.setItem(THEME_KEY, t); } catch (e) {} }
+  syncThemeBtn();
+  if (merged.length && (chartFx || chartFlow)) renderCharts();
+  if (typeof Chart !== "undefined") Chart.defaults.color = cv("--ch-tick");
+}
+function initTheme() {
+  syncThemeBtn();
+  if (typeof Chart !== "undefined") Chart.defaults.color = cv("--ch-tick");
+  $("themeBtn").addEventListener("click", () => {
+    applyTheme(document.documentElement.getAttribute("data-theme") === "dark" ? "light" : "dark", true);
+  });
+  try {
+    const mq = matchMedia("(prefers-color-scheme: dark)");
+    const h = (e) => { let s = null; try { s = localStorage.getItem(THEME_KEY); } catch (x) {} if (s !== "light" && s !== "dark") applyTheme(e.matches ? "dark" : "light", false); };
+    mq.addEventListener ? mq.addEventListener("change", h) : mq.addListener(h);
+  } catch (e) {}
 }
 
 function chartOpts() {
   return {
     responsive: true, maintainAspectRatio: false,
     interaction: { mode: "index", intersect: false },
-    plugins: { legend: { labels: { color: "#e2e8f0" } }, tooltip: { mode: "index", intersect: false } },
+    plugins: { legend: { labels: { color: cv("--ch-legend") } }, tooltip: { mode: "index", intersect: false } },
     scales: {
-      x: { ticks: { color: "#475569", maxRotation: 0, autoSkip: true }, grid: { color: "rgba(0,0,0,0.08)" } },
-      y: { ticks: { color: "#475569" }, grid: { color: "rgba(0,0,0,0.08)" } }
+      x: { ticks: { color: cv("--ch-tick"), maxRotation: 0, autoSkip: true }, grid: { color: cv("--ch-grid") } },
+      y: { ticks: { color: cv("--ch-tick") }, grid: { color: cv("--ch-grid") } }
     }
   };
 }

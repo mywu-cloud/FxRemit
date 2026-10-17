@@ -3,9 +3,9 @@ name: Auto Update FX Data
 on:
   schedule:
     # GitHub Actions cron 使用 UTC
-    # 台灣 19:00 = UTC 11:00；台灣 20:00 = UTC 12:00
-    - cron: "0 11 * * *"
-    - cron: "0 12 * * *"
+    # 週一～週五；台灣 18:17 = UTC 10:17；台灣 19:47 = UTC 11:47
+    - cron: "17 10 * * 1-5"
+    - cron: "47 11 * * 1-5"
   workflow_dispatch:
 
 jobs:
